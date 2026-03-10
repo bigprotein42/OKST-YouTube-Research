@@ -16,8 +16,16 @@ COMPETITORS = [
     {"name": "Comfort Level",  "id": "UCJ8l9Mu5FOSQ1WFFhS4mlDA"},
 ]
 
+def _parse_iso_duration(d):
+    """Convert ISO 8601 duration to seconds."""
+    m = re.match(r'PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?', d or "")
+    if not m:
+        return 0
+    return int(m.group(1) or 0)*3600 + int(m.group(2) or 0)*60 + int(m.group(3) or 0)
+
+
 def fetch_competitor_thumbs(days=7):
-    """Pull thumbnails from competitor RSS feeds — no API key needed."""
+    """Pull long-form-only thumbnails from competitor RSS feeds."""
     os.makedirs("thumbnails/competitors", exist_ok=True)
     cutoff = datetime.now(timezone.utc) - timedelta(days=days)
     items = []
@@ -38,9 +46,38 @@ def fetch_competitor_thumbs(days=7):
                 if dt >= cutoff:
                     items.append({"channel": ch["name"], "video_id": vid,
                                   "title": title, "published": dt.strftime("%b %d"),
-                                  "url": f"https://youtube.com/watch?v={vid}"})
+                                  "url": f"https://youtube.com/watch?v={vid}",
+                                  "view_count": 0, "duration_seconds": 0})
         except Exception as e:
             print(f"  ✗ {ch['name']}: {e}")
+
+    # Use YouTube API to get duration + view count, then filter out Shorts (<= 120s)
+    api_key = os.environ.get("YOUTUBE_API_KEY", "")
+    if api_key and items:
+        all_ids = [it["video_id"] for it in items]
+        meta = {}
+        for i in range(0, len(all_ids), 50):
+            batch = all_ids[i:i+50]
+            try:
+                r = _req.get(
+                    "https://www.googleapis.com/youtube/v3/videos",
+                    params={"part": "contentDetails,statistics", "id": ",".join(batch), "key": api_key},
+                    timeout=10
+                )
+                for v in r.json().get("items", []):
+                    meta[v["id"]] = {
+                        "duration_seconds": _parse_iso_duration(v["contentDetails"].get("duration", "")),
+                        "view_count": int(v["statistics"].get("viewCount", 0))
+                    }
+            except Exception as e:
+                print(f"  ✗ API duration fetch: {e}")
+        for it in items:
+            it.update(meta.get(it["video_id"], {}))
+        before = len(items)
+        items = [it for it in items if it["duration_seconds"] > 120]
+        print(f"  Filtered {before - len(items)} Shorts; {len(items)} long-form competitor videos remain")
+    else:
+        print("  Note: no API key — Shorts not filtered from competitor grid")
 
     # Download thumbnails
     for item in items:
@@ -209,12 +246,16 @@ def build(videos):
                 continue
             ch    = item["channel"]
             title = (item["title"][:45] + "…") if len(item["title"]) > 45 else item["title"]
+            vc    = item.get("view_count", 0)
+            views_str = f"{vc/1_000_000:.1f}M" if vc >= 1_000_000 else (f"{vc//1000}K" if vc >= 1000 else str(vc))
+            views_html = f'<span style="font-size:.7rem;color:var(--text-muted)">{views_str} views</span>' if vc > 0 else ''
             html += f'''<div class="thumb-item">
                 <a href="{item['url']}" target="_blank">
                     <img src="data:image/jpeg;base64,{b64}" alt="{title}">
                 </a>
                 <div class="thumb-label">
                     <span class="thumb-dur">{ch}</span>
+                    {views_html}
                     <strong style="font-size:.8rem;margin-top:3px;display:block">{title}</strong>
                     <span style="font-size:.7rem;color:var(--text-muted)">{item['published']}</span>
                 </div>
@@ -722,6 +763,24 @@ footer {{ text-align: center; color: var(--text-muted); font-size: .75rem; paddi
     <div class="insight red"><strong>Avoid:</strong> Titles that lead with subreddit tag, host name, or generic clip label.<br>Not working: "r/tifu clip" · "Denise reacts to…" · "Full episode" · "Red flag / Green flag"</div>
     <div class="insight yellow">💡 Every viral title pattern: <strong>first-person drama + unresolved tension</strong>. The viewer must feel they NEED to know what happens next.</div>
   </div>
+
+  <!-- Title Generator -->
+  <div class="card" id="title-gen-card">
+    <div class="card-title">✍️ Title Generator — Paste Your Story, Get 5–10 Titles</div>
+    <p style="font-size:.83rem;color:var(--text-muted);margin:0 0 14px">Claude will generate titles tuned to your channel's proven patterns — using the keyword data above and your top-performing title formulas. Requires your Anthropic API key (saved in the Analytics tab).</p>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <textarea id="story-input" rows="5" placeholder="Paste a short summary of the story or episode here… e.g. 'A wife discovers her husband has been secretly paying his ex's rent for two years while telling her they were broke. She finds out when the ex shows up at their door.'"
+        style="width:100%;padding:12px 14px;border:1px solid var(--border);border-radius:10px;font-family:inherit;font-size:.875rem;line-height:1.55;resize:vertical;background:var(--surface2);color:var(--text);outline:none;box-sizing:border-box"></textarea>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <button id="gen-btn" onclick="generateTitles()" style="background:var(--primary);color:#fff;border:none;border-radius:8px;padding:9px 20px;font-size:.875rem;font-weight:600;cursor:pointer">Generate Titles ✨</button>
+        <span id="gen-status" style="font-size:.82rem;color:var(--text-muted)"></span>
+      </div>
+    </div>
+    <div id="title-results" style="display:none;margin-top:18px;display:none">
+      <div style="font-size:.75rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted);margin-bottom:10px">Generated Titles</div>
+      <ol id="title-list" style="margin:0;padding-left:20px;display:flex;flex-direction:column;gap:8px;font-size:.9rem;line-height:1.5"></ol>
+    </div>
+  </div>
 </div>
 
 
@@ -1059,11 +1118,88 @@ When the user asks why views dropped, reference specific months and videos. Be d
     return div;
   }}
 
+  // ── Title Generator ──────────────────────────────────────────
+  async function generateTitles() {{
+    const story = document.getElementById('story-input').value.trim();
+    if (!story) {{ alert('Paste a story summary first.'); return; }}
+    const key = getKey();
+    if (!key) {{ alert('Save your Anthropic API key in the Analytics tab first.'); return; }}
+
+    const btn = document.getElementById('gen-btn');
+    const status = document.getElementById('gen-status');
+    const results = document.getElementById('title-results');
+    const list = document.getElementById('title-list');
+    btn.disabled = true;
+    status.textContent = 'Generating…';
+    results.style.display = 'none';
+
+    const topWords = ['mega','weekly','recap','compilation','truth','dark','reaction','hours','proposed','abandoned'];
+    const avoidWords = ['clip','tifu','maliciouscompliance','askreddit','full','flag','denise','brady','joanna'];
+    const exampleTitles = [
+      'My husband BONED his co-worker…',
+      'I was accused of cheating… the DNA Test revealed the TRUTH',
+      'Stepdad wants me to pay rent… but he doesn\'t know my secret',
+      'She abandoned her kids for a new life — then begged to come back',
+      'My boss demanded I work on my wedding day… so I quit live on Zoom'
+    ];
+
+    const prompt = `You are a YouTube title expert for the channel OKStorytime — a reddit story reaction channel.
+
+PROVEN TITLE RULES for this channel:
+- Start with first-person drama or shocking action (not the host name, not a subreddit tag)
+- Must create unresolved tension — viewer NEEDS to know what happens
+- Use strong emotional words: TRUTH, SECRET, REVEALED, BONED, ABANDONED, DEMANDED, EXPOSED
+- Ellipsis (…) works well to create a cliffhanger mid-title
+- Best performing words to include if natural: mega, weekly, recap, compilation, truth, dark, reaction, hours
+- AVOID: clip, tifu, maliciouscompliance, askreddit, full, flag, host names (Denise, Brady, Joanna)
+- AVOID leading with: "r/", "rSlash", host names, or "full episode"
+- Length: 60–80 characters is ideal
+
+TOP PERFORMING TITLE EXAMPLES from this channel:
+${{exampleTitles.map((t,i)=>`${{i+1}}. ${{t}}`).join('\\n')}}
+
+STORY TO TITLE:
+${{story}}
+
+Generate 8 YouTube title options. Number them 1–8. Each title on its own line. No extra commentary — just the numbered list.`;
+
+    try {{
+      const resp = await fetch('https://api.anthropic.com/v1/messages', {{
+        method: 'POST',
+        headers: {{
+          'Content-Type': 'application/json',
+          'x-api-key': key,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true'
+        }},
+        body: JSON.stringify({{
+          model: 'claude-opus-4-6',
+          max_tokens: 600,
+          messages: [{{ role: 'user', content: prompt }}]
+        }})
+      }});
+      const data = await resp.json();
+      if (data.error) {{
+        status.textContent = '⚠️ ' + (data.error.message || 'API error');
+      }} else {{
+        const text = data.content?.[0]?.text || '';
+        const lines = text.split('\\n').map(l => l.replace(/^\\d+[.)\\s]+/, '').trim()).filter(l => l.length > 5);
+        list.innerHTML = lines.map(l => `<li style="padding:6px 0;border-bottom:1px solid var(--border)">${{l}}</li>`).join('');
+        results.style.display = 'block';
+        status.textContent = `${{lines.length}} titles generated`;
+      }}
+    }} catch(e) {{
+      status.textContent = '⚠️ ' + e.message;
+    }}
+    btn.disabled = false;
+  }}
+
   // Expose to global scope
   window.saveKey = saveKey;
   window.clearKey = clearKey;
   window.sendChat = sendChat;
   window.askChip = askChip;
+  window.generateTitles = generateTitles;
 }})();
 </script>
 </body>
