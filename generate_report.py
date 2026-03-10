@@ -374,7 +374,10 @@ def build(videos):
             mins = v["duration_minutes"]
             dur_badge = '<span class="badge short">Short</span>' if mins < 2 else f'<span class="badge long">{mins:.0f}m</span>'
             num_cls = f"num {color}" if color else "num"
-            r += f'<tr><td class="rank">{i}</td><td><a href="{v["url"]}" target="_blank">{v["title"][:80]}</a></td><td class="{num_cls}">{fmt(v["view_count"])}</td><td>{dur_badge}</td><td class="muted">{v["publish_date"]}</td><td class="muted">{v["publish_day_of_week"][:3]}</td></tr>'
+            title = v["title"]
+            is_live = '\U0001f534' in title or bool(re.search(r'\bstream\b', title, re.IGNORECASE))
+            live_attr = ' data-live="1"' if is_live else ''
+            r += f'<tr{live_attr}><td class="rank">{i}</td><td><a href="{v["url"]}" target="_blank">{title[:80]}</a></td><td class="{num_cls}">{fmt(v["view_count"])}</td><td>{dur_badge}</td><td class="muted">{v["publish_date"]}</td><td class="muted">{v["publish_day_of_week"][:3]}</td></tr>'
         return r
 
     def top10_rows():   return video_rows_html(by_views[:10])
@@ -1044,6 +1047,13 @@ footer {{ text-align: center; color: var(--text-muted); font-size: .75rem; paddi
 
   <!-- Long-form sub-tab -->
   <div id="video-sub-longform">
+    <!-- Livestream filter -->
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
+      <span style="font-size:.82rem;color:var(--text-muted);font-weight:600">Filter:</span>
+      <button class="live-filter-btn active" onclick="filterLiveRows(this,'all')" style="padding:5px 14px;border:1px solid var(--border);border-radius:20px;background:var(--primary);color:#fff;font-size:.8rem;cursor:pointer;font-family:inherit;font-weight:600">All</button>
+      <button class="live-filter-btn" onclick="filterLiveRows(this,'hide')" style="padding:5px 14px;border:1px solid var(--border);border-radius:20px;background:var(--surface);color:var(--text-muted);font-size:.8rem;cursor:pointer;font-family:inherit;font-weight:600">Hide Livestreams</button>
+      <button class="live-filter-btn" onclick="filterLiveRows(this,'only')" style="padding:5px 14px;border:1px solid var(--border);border-radius:20px;background:var(--surface);color:var(--text-muted);font-size:.8rem;cursor:pointer;font-family:inherit;font-weight:600">Livestreams Only</button>
+    </div>
     <div class="card">
       <div class="card-title">🏆 Top 20 Long-Form Videos (5+ min)</div>
       <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:10px">Sorted by all-time views. These are your proven formats — click any title to watch.</p>
@@ -1433,6 +1443,24 @@ function filterTitles(period, btn) {{
 }}
 
 // ── Video sub-tabs ───────────────────────────────────────────────
+function filterLiveRows(btn, mode) {{
+  document.querySelectorAll('.live-filter-btn').forEach(b => {{
+    b.style.background = 'var(--surface)';
+    b.style.color = 'var(--text-muted)';
+    b.style.borderColor = 'var(--border)';
+  }});
+  btn.style.background = 'var(--primary)';
+  btn.style.color = '#fff';
+  btn.style.borderColor = 'var(--primary)';
+  const container = document.getElementById('video-sub-longform');
+  container.querySelectorAll('tbody tr').forEach(row => {{
+    const isLive = row.dataset.live === '1';
+    if (mode === 'all') row.style.display = '';
+    else if (mode === 'hide') row.style.display = isLive ? 'none' : '';
+    else if (mode === 'only') row.style.display = isLive ? '' : 'none';
+  }});
+}}
+
 function showVideoSub(name, btn) {{
   ['longform','shorts'].forEach(n => {{
     const el = document.getElementById('video-sub-'+n);
