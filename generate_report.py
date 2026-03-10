@@ -16,6 +16,29 @@ COMPETITORS = [
     {"name": "Comfort Level",  "id": "UCJ8l9Mu5FOSQ1WFFhS4mlDA"},
 ]
 
+def _jpeg_is_portrait(path):
+    """Return True if JPEG image is taller than wide (= a Short). No PIL needed."""
+    try:
+        with open(path, "rb") as f:
+            data = f.read(65536)  # read first 64KB — enough for headers
+        i = 2
+        while i < len(data) - 9:
+            if data[i] != 0xFF:
+                break
+            marker = data[i+1]
+            if marker in (0xC0, 0xC1, 0xC2):  # SOF markers contain dimensions
+                h = (data[i+5] << 8) | data[i+6]
+                w = (data[i+7] << 8) | data[i+8]
+                return h > w
+            if marker in (0xD8, 0xD9, 0xDA):
+                break
+            length = (data[i+2] << 8) | data[i+3]
+            i += 2 + length
+    except Exception:
+        pass
+    return False
+
+
 def _parse_iso_duration(d):
     """Convert ISO 8601 duration to seconds."""
     m = re.match(r'PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?', d or "")
@@ -79,7 +102,7 @@ def fetch_competitor_thumbs(days=7):
     else:
         print("  Note: no API key — Shorts not filtered from competitor grid")
 
-    # Download thumbnails
+    # Download thumbnails, then remove portrait ones (Shorts)
     for item in items:
         path = f"thumbnails/competitors/{item['video_id']}.jpg"
         if os.path.exists(path):
@@ -94,7 +117,19 @@ def fetch_competitor_thumbs(days=7):
             except:
                 pass
         time.sleep(0.05)
-    return items
+
+    # Filter out portrait thumbnails (Shorts) — works even without API key
+    before = len(items)
+    filtered = []
+    for item in items:
+        path = f"thumbnails/competitors/{item['video_id']}.jpg"
+        if os.path.exists(path) and _jpeg_is_portrait(path):
+            os.remove(path)  # delete so it won't reappear next run
+            continue
+        filtered.append(item)
+    if before - len(filtered):
+        print(f"  Removed {before - len(filtered)} portrait/Shorts thumbnails from competitor grid")
+    return filtered
 
 
 def load_csv(filename="okstorytime_videos.csv"):
@@ -218,11 +253,48 @@ def build(videos):
         if sv:
             shorts_yearly.append({"year": yr, "avg": sum(v["view_count"] for v in sv)/len(sv), "count": len(sv)})
 
-    # ── Thumbnails: LONG-FORM ONLY for top grid ───────────────────
-    longform_by_views = [v for v in by_views if v["duration_minutes"] >= 2]
+    # ── Thumbnails: TRUE LONG-FORM (5+ min horizontal) ───────────
+    LONGFORM_MIN = 5  # minutes — excludes Shorts and near-Shorts uploaded as long-form
+    longform_by_views = [v for v in by_views if v["duration_minutes"] >= LONGFORM_MIN]
     top_thumb_ids = [v["video_id"] for v in longform_by_views[:18]]
-    recent_longform = [v for v in recent if v["duration_minutes"] >= 2]
+    recent_longform = [v for v in recent if v["duration_minutes"] >= LONGFORM_MIN]
     bot_thumb_ids = [v["video_id"] for v in recent_longform[:18]]
+
+    # Build per-year top pools for filterable grid (top 10 per year max)
+    thumb_pool_ids = set(top_thumb_ids)
+    for yr in sorted(years, reverse=True)[-5:]:   # last 5 years only
+        yr_top = [v for v in longform_by_views if v["publish_year"] == yr][:10]
+        thumb_pool_ids |= {v["video_id"] for v in yr_top}
+    # Last 30 days
+    cutoff_30 = (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d")
+    recent_30 = [v for v in longform_by_views if v.get("publish_date","") >= cutoff_30][:10]
+    thumb_pool_ids |= {v["video_id"] for v in recent_30}
+
+    # Download missing thumbnails (hqdefault = smaller ~15KB vs maxres ~60KB)
+    os.makedirs("thumbnails/top", exist_ok=True)
+    for vid_id in thumb_pool_ids:
+        path = f"thumbnails/top/{vid_id}.jpg"
+        if os.path.exists(path):
+            continue
+        for q in ["hqdefault", "mqdefault"]:
+            try:
+                r = _req.get(f"https://i.ytimg.com/vi/{vid_id}/{q}.jpg", timeout=8)
+                if r.status_code == 200 and len(r.content) > 3000:
+                    with open(path, "wb") as f:
+                        f.write(r.content)
+                    break
+            except:
+                pass
+        time.sleep(0.03)
+
+    # Build thumb dict for JS — only IDs that have a file
+    thumb_dict = {}
+    for vid_id in thumb_pool_ids:
+        b64 = img_b64(f"thumbnails/top/{vid_id}.jpg") or img_b64(f"thumbnails/recent/{vid_id}.jpg")
+        if b64:
+            thumb_dict[vid_id] = b64
+    thumb_dict_json = json.dumps(thumb_dict)
+    print(f"  Thumb pool: {len(thumb_dict)} thumbnails embedded for filter grid")
 
     def thumb_grid(ids, folder):
         html = '<div class="thumb-grid">'
@@ -280,6 +352,11 @@ def build(videos):
 
     top_grid = thumb_grid(top_thumb_ids, "top")
     bot_grid = thumb_grid(bot_thumb_ids, "bottom")
+    thumb_year_btns = "".join(
+        f'<button class="filter-btn" onclick="filterThumbs(\'{yr}\',this)">{yr}</button>'
+        for yr in sorted(years, reverse=True)
+        if any(v["publish_year"] == yr and v["duration_minutes"] >= 5 for v in videos)
+    )
 
     # JSON data for JS time-period filter (day/length tables)
     video_json = json.dumps([{
@@ -716,12 +793,18 @@ footer {{ text-align: center; color: var(--text-muted); font-size: .75rem; paddi
   </div>
   <div class="card">
     <div class="card-title">🏆 Top Performing Long-Form Thumbnails — Study These</div>
-    <p style="font-size:.84rem;color:var(--text-muted);margin-bottom:4px">Long-form videos only (2+ min) · purple/blue background, orange clothing, extreme close-up, open mouth, direct eye contact.</p>
-    {top_grid}
+    <p style="font-size:.84rem;color:var(--text-muted);margin-bottom:12px">True long-form only (5+ min horizontal) · tap a period to filter.</p>
+    <div id="thumb-filters" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
+      <button class="filter-btn active" onclick="filterThumbs('all',this)">Lifetime</button>
+      {thumb_year_btns}
+      <button class="filter-btn" onclick="filterThumbs('last30',this)">Last 30 Days</button>
+      <button class="filter-btn" onclick="filterThumbs('last7',this)">Last 7 Days</button>
+    </div>
+    <div id="top-thumb-grid"></div>
   </div>
   <div class="card">
     <div class="card-title">⚠️ Your Lowest Performing Long-Form Thumbnails — Avoid These Patterns</div>
-    <p style="font-size:.84rem;color:var(--text-muted);margin-bottom:4px">Long-form 2024+ videos with fewest views · red backgrounds, guests, profile shots, cluttered UI, low energy.</p>
+    <p style="font-size:.84rem;color:var(--text-muted);margin-bottom:4px">True long-form (5+ min) 2024+ videos with fewest views · red backgrounds, guests, profile shots, cluttered UI, low energy.</p>
     {bot_grid}
   </div>
 
@@ -1019,6 +1102,7 @@ function show(tab, btn) {{
 // ── Embedded data ───────────────────────────────────────────────
 const ALL_VIDEOS   = {video_json};
 const MONTHLY_DATA = {monthly_json};
+const THUMB_DICT   = {thumb_dict_json};
 
 const DAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
 const BUCKETS = [
@@ -1187,9 +1271,58 @@ function drawChart(data) {{
   `;
 }}
 
+// ── Thumbnail filter ─────────────────────────────────────────────
+function filterThumbs(period, btn) {{
+  document.querySelectorAll('#thumb-filters .filter-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+
+  const now = new Date();
+  const longform = ALL_VIDEOS.filter(v => v.duration_minutes >= 5);
+
+  let pool;
+  if (period === 'all') {{
+    pool = [...longform].sort((a,b) => b.view_count - a.view_count);
+  }} else if (period === 'last7') {{
+    const cut = new Date(now - 7*86400000).toISOString().slice(0,10);
+    pool = longform.filter(v => v.publish_date >= cut).sort((a,b) => b.view_count - a.view_count);
+  }} else if (period === 'last30') {{
+    const cut = new Date(now - 30*86400000).toISOString().slice(0,10);
+    pool = longform.filter(v => v.publish_date >= cut).sort((a,b) => b.view_count - a.view_count);
+  }} else {{
+    const yr = parseInt(period);
+    pool = longform.filter(v => v.publish_year === yr).sort((a,b) => b.view_count - a.view_count);
+  }}
+
+  const top18 = pool.filter(v => THUMB_DICT[v.video_id]).slice(0, 18);
+  const grid = document.getElementById('top-thumb-grid');
+  if (!grid) return;
+
+  if (top18.length === 0) {{
+    grid.innerHTML = '<p style="color:var(--text-muted);padding:12px 0">No thumbnails available for this period yet. They load on next refresh.</p>';
+    return;
+  }}
+
+  grid.innerHTML = '<div class="thumb-grid">' + top18.map(v => {{
+    const views = v.view_count >= 1000000 ? (v.view_count/1000000).toFixed(1)+'M'
+                : v.view_count >= 1000    ? Math.round(v.view_count/1000)+'K'
+                : v.view_count;
+    const title = v.title.length > 45 ? v.title.slice(0,45)+'…' : v.title;
+    return '<div class="thumb-item">'
+      + '<a href="https://youtube.com/watch?v='+v.video_id+'" target="_blank">'
+      + '<img src="data:image/jpeg;base64,'+THUMB_DICT[v.video_id]+'" alt="'+title+'" loading="lazy"></a>'
+      + '<div class="thumb-label">'
+      + '<strong>'+views+' views</strong>'
+      + '<div style="display:flex;gap:6px;margin:3px 0 4px;align-items:center">'
+      + '<span class="thumb-dur">'+Math.round(v.duration_minutes)+' min</span>'
+      + '<span style="font-size:.68rem;color:var(--text-muted)">'+v.publish_date+'</span>'
+      + '</div><span>'+title+'</span></div></div>';
+  }}).join('') + '</div>';
+}}
+
 // ── Initialize ──────────────────────────────────────────────────
 filterAnalytics('all', document.getElementById('fb-all'));
 drawChart(MONTHLY_DATA.slice(-12));
+filterThumbs('all', null);
 
 // ── AI Chat ─────────────────────────────────────────────────────
 (function() {{
