@@ -1,0 +1,4 @@
+thumbnails/
+__pycache__/
+*.pyc
+.env

@@ -1,0 +1,44 @@
+name: Refresh Analytics Report
+
+on:
+  schedule:
+    - cron: '0 12 * * 0'   # Every Sunday at noon UTC (8am ET)
+  workflow_dispatch:         # Manual trigger from GitHub UI
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Fetch fresh YouTube data
+        env:
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+        run: python fetch_channel_data.py
+
+      - name: Download thumbnails
+        run: python analyze_thumbnails.py
+
+      - name: Generate HTML report
+        run: python generate_report.py
+
+      - name: Commit and push updated report
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add okstorytime_videos.csv index.html
+          git diff --staged --quiet || git commit -m "Auto-refresh: $(date -u '+%Y-%m-%d')"
+          git push
