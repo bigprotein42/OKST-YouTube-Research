@@ -1310,7 +1310,7 @@ drawChart(MONTHLY_DATA.slice(-12));
     const exampleTitles = [
       'My husband BONED his co-worker…',
       'I was accused of cheating… the DNA Test revealed the TRUTH',
-      'Stepdad wants me to pay rent… but he doesn\'t know my secret',
+      'Stepdad wants me to pay rent\u2026 but he doesn\u2019t know my secret',
       'She abandoned her kids for a new life — then begged to come back',
       'My boss demanded I work on my wedding day… so I quit live on Zoom'
     ];
