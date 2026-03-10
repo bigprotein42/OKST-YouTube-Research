@@ -368,19 +368,46 @@ def build(videos):
     } for v in videos])
 
     # Table builders
-    def top10_rows():
+    def video_rows_html(vlist, color=""):
         r = ""
-        for i,v in enumerate(by_views[:10],1):
-            dur_badge = '<span class="badge short">Short</span>' if v["duration_minutes"] < 2 else f'<span class="badge long">{v["duration_minutes"]:.0f}m</span>'
-            r += f'<tr><td class="rank">{i}</td><td><a href="{v["url"]}" target="_blank">{v["title"][:70]}</a></td><td class="num">{fmt(v["view_count"])}</td><td>{dur_badge}</td><td class="muted">{v["publish_date"]}</td><td class="muted">{v["publish_day_of_week"][:3]}</td></tr>'
+        for i,v in enumerate(vlist,1):
+            mins = v["duration_minutes"]
+            dur_badge = '<span class="badge short">Short</span>' if mins < 2 else f'<span class="badge long">{mins:.0f}m</span>'
+            num_cls = f"num {color}" if color else "num"
+            r += f'<tr><td class="rank">{i}</td><td><a href="{v["url"]}" target="_blank">{v["title"][:80]}</a></td><td class="{num_cls}">{fmt(v["view_count"])}</td><td>{dur_badge}</td><td class="muted">{v["publish_date"]}</td><td class="muted">{v["publish_day_of_week"][:3]}</td></tr>'
         return r
 
-    def recent_low_rows():
-        r = ""
-        for i,v in enumerate(recent[:10],1):
-            dur_badge = '<span class="badge short">Short</span>' if v["duration_minutes"] < 2 else f'<span class="badge long">{v["duration_minutes"]:.0f}m</span>'
-            r += f'<tr><td class="rank">{i}</td><td><a href="{v["url"]}" target="_blank">{v["title"][:70]}</a></td><td class="num red">{fmt(v["view_count"])}</td><td>{dur_badge}</td><td class="muted">{v["publish_date"]}</td><td class="muted">{v["publish_day_of_week"][:3]}</td></tr>'
-        return r
+    def top10_rows():   return video_rows_html(by_views[:10])
+    def recent_low_rows(): return video_rows_html(recent[:10], "red")
+
+    def comp_title_rows():
+        if not comp_items:
+            return '<p style="color:var(--text-muted)">No competitor data — check back after next refresh.</p>'
+        rows = ""
+        for item in sorted(comp_items, key=lambda x: x.get("view_count",0), reverse=True):
+            vc = item.get("view_count", 0)
+            views_str = f"{vc/1_000_000:.1f}M" if vc >= 1_000_000 else (f"{vc//1000}K" if vc >= 1000 else ("" if vc == 0 else str(vc)))
+            views_badge = f'<span style="font-size:.72rem;color:var(--text-muted);margin-left:6px">{views_str} views</span>' if views_str else ""
+            rows += (f'<div style="display:flex;align-items:baseline;gap:8px;padding:7px 10px;'
+                     f'border-radius:8px;background:var(--surface2);border:1px solid var(--border)">'
+                     f'<span class="thumb-dur" style="flex-shrink:0">{item["channel"]}</span>'
+                     f'<a href="{item["url"]}" target="_blank" style="font-size:.875rem;font-weight:600;color:var(--text);text-decoration:none;flex:1">{item["title"]}</a>'
+                     f'{views_badge}'
+                     f'<span style="font-size:.72rem;color:var(--text-muted);flex-shrink:0">{item["published"]}</span>'
+                     f'</div>')
+        return rows
+
+    # Pre-compute top/bottom for each format for JS
+    top_longform  = [v for v in by_views  if v["duration_minutes"] >= 5][:20]
+    top_shorts_vd = [v for v in by_views  if v["duration_minutes"] <  2][:20]
+    bot_longform  = sorted([v for v in videos if v["duration_minutes"] >= 5 and v["publish_year"] >= 2024],
+                           key=lambda x: x["view_count"])[:20]
+    bot_shorts_vd = sorted([v for v in videos if v["duration_minutes"] <  2 and v["publish_year"] >= 2024],
+                           key=lambda x: x["view_count"])[:20]
+
+    def make_video_table(vlist, color=""):
+        hdr = '<table><tr><th>#</th><th>Title</th><th>Views</th><th>Length</th><th>Date</th><th>Day</th></tr>'
+        return hdr + video_rows_html(vlist, color) + '</table>'
 
     def year_rows():
         r = ""
@@ -955,6 +982,39 @@ footer {{ text-align: center; color: var(--text-muted); font-size: .75rem; paddi
   </div>
 
   <!-- Title Generator -->
+  <!-- Title Performance -->
+  <div class="card">
+    <div class="card-title">📋 Title Performance — What's Working &amp; What's Not</div>
+    <p style="font-size:.83rem;color:var(--text-muted);margin:0 0 12px">Click a time period to filter. Titles link directly to the video.</p>
+    <div id="title-period-filters" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
+      <button class="filter-btn active" onclick="filterTitles('all',this)">All Time</button>
+      <button class="filter-btn" onclick="filterTitles('2026',this)">2026</button>
+      <button class="filter-btn" onclick="filterTitles('2025',this)">2025</button>
+      <button class="filter-btn" onclick="filterTitles('2024',this)">2024</button>
+      <button class="filter-btn" onclick="filterTitles('2023',this)">2023</button>
+      <button class="filter-btn" onclick="filterTitles('last30',this)">Last 30 Days</button>
+    </div>
+    <div class="two-col" style="gap:14px">
+      <div>
+        <div style="font-size:.7rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--green);margin-bottom:8px">✓ Top Performing Titles</div>
+        <div id="title-top-list" style="display:flex;flex-direction:column;gap:6px"></div>
+      </div>
+      <div>
+        <div style="font-size:.7rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--red);margin-bottom:8px">⚠ Lowest Performing Titles</div>
+        <div id="title-bot-list" style="display:flex;flex-direction:column;gap:6px"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Competitor Titles -->
+  <div class="card">
+    <div class="card-title">🏆 Competitor Titles — Last 7 Days</div>
+    <p style="font-size:.83rem;color:var(--text-muted);margin:0 0 12px">What Two Hot Takes, rSlash, MrBallen &amp; Comfort Level are titling this week. Study the patterns.</p>
+    <div style="display:flex;flex-direction:column;gap:6px">
+      {comp_title_rows()}
+    </div>
+  </div>
+
   <div class="card" id="title-gen-card">
     <div class="card-title">✍️ Title Generator — Paste Your Story, Get 5–10 Titles</div>
     <p style="font-size:.83rem;color:var(--text-muted);margin:0 0 14px">Claude will generate titles tuned to your channel's proven patterns — using the keyword data above and your top-performing title formulas. Requires your Anthropic API key (saved in the Analytics tab).</p>
@@ -976,21 +1036,38 @@ footer {{ text-align: center; color: var(--text-muted); font-size: .75rem; paddi
 
 <!-- ════════ VIDEOS ════════ -->
 <div id="tab-videos" class="tab">
-  <div class="card" style="margin-top:22px">
-    <div class="card-title">🏆 Top 10 Videos of All Time</div>
-    <div class="table-wrap"><table>
-      <tr><th>#</th><th>Title</th><th>Views</th><th>Length</th><th>Date</th><th>Day</th></tr>
-      {top10_rows()}
-    </table></div>
-    <p style="font-size:.82rem;color:var(--text-muted);margin-top:10px">Every top video is a Short from 2022–2023. That era is over — the path forward is long-form.</p>
+  <!-- Sub-tab nav -->
+  <div style="display:flex;gap:8px;margin:22px 0 16px;border-bottom:1px solid var(--border);padding-bottom:0">
+    <button class="sub-tab-btn active" onclick="showVideoSub('longform',this)" style="padding:8px 18px;border:none;background:none;font-weight:700;font-size:.9rem;cursor:pointer;border-bottom:2px solid var(--primary);color:var(--primary);font-family:inherit">📹 Long-Form</button>
+    <button class="sub-tab-btn" onclick="showVideoSub('shorts',this)" style="padding:8px 18px;border:none;background:none;font-weight:700;font-size:.9rem;cursor:pointer;border-bottom:2px solid transparent;color:var(--text-muted);font-family:inherit">⚡ Shorts</button>
   </div>
-  <div class="card">
-    <div class="card-title">⚠️ Lowest Performing Recent Videos (2024+)</div>
-    <div class="table-wrap"><table>
-      <tr><th>#</th><th>Title</th><th>Views</th><th>Length</th><th>Date</th><th>Day</th></tr>
-      {recent_low_rows()}
-    </table></div>
-    <p style="font-size:.82rem;color:var(--text-muted);margin-top:10px">Most are short clips, fragments, or subreddit-tagged posts. These formats are not working.</p>
+
+  <!-- Long-form sub-tab -->
+  <div id="video-sub-longform">
+    <div class="card">
+      <div class="card-title">🏆 Top 20 Long-Form Videos (5+ min)</div>
+      <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:10px">Sorted by all-time views. These are your proven formats — click any title to watch.</p>
+      <div class="table-wrap">{make_video_table(top_longform)}</div>
+    </div>
+    <div class="card">
+      <div class="card-title">⚠️ Lowest Performing Long-Form (2024+)</div>
+      <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:10px">Long-form videos from 2024 onward with fewest views. Study what went wrong.</p>
+      <div class="table-wrap">{make_video_table(bot_longform, "red")}</div>
+    </div>
+  </div>
+
+  <!-- Shorts sub-tab -->
+  <div id="video-sub-shorts" style="display:none">
+    <div class="card">
+      <div class="card-title">⚡ Top 20 Shorts of All Time</div>
+      <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:10px">Every top Short is from 2022–2023. The algorithm that made these work no longer exists.</p>
+      <div class="table-wrap">{make_video_table(top_shorts_vd)}</div>
+    </div>
+    <div class="card">
+      <div class="card-title">⚠️ Lowest Performing Shorts (2024+)</div>
+      <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:10px">Recent Shorts that aren't working. Mostly livestream clips, subreddit-tagged, or random fragments.</p>
+      <div class="table-wrap">{make_video_table(bot_shorts_vd, "red")}</div>
+    </div>
   </div>
 </div>
 
@@ -1038,7 +1115,7 @@ footer {{ text-align: center; color: var(--text-muted); font-size: .75rem; paddi
       <div class="insight yellow">💡 <strong>The current winning Shorts format:</strong> 15–33 seconds, mid-action cold open (no intro), single shocking story moment, cliffhanger ending that drives to the long-form video.</div>
     </div>
     <div class="card">
-      <div class="card-title">✅ How to Fix Shorts in 2025</div>
+      <div class="card-title">✅ How to Fix Shorts in 2026</div>
       <div class="insight green" style="margin-bottom:10px"><strong>1. Cut to 2–3 Shorts/week max.</strong> Pick your single best story moment from each long-form episode. One intentional Short beats 20 random clips every time.</div>
       <div class="insight green" style="margin-bottom:10px"><strong>2. Use the cliffhanger hook.</strong> Start mid-story: "She opened the door and couldn't believe what she saw…" — then cut. Link to the full episode in pinned comment.</div>
       <div class="insight green" style="margin-bottom:10px"><strong>3. Series format.</strong> "Part 1 / Part 2 / Part 3" Shorts force profile visits and subscriptions. Each Short ends on an unresolved beat.</div>
@@ -1319,10 +1396,63 @@ function filterThumbs(period, btn) {{
   }}).join('') + '</div>';
 }}
 
+// ── Title filter ─────────────────────────────────────────────────
+function filterTitles(period, btn) {{
+  document.querySelectorAll('#title-period-filters .filter-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+
+  const now = new Date();
+  let pool = ALL_VIDEOS.filter(v => v.duration_minutes >= 5);
+
+  if (period === 'last30') {{
+    const cut = new Date(now - 30*86400000).toISOString().slice(0,10);
+    pool = pool.filter(v => v.publish_date >= cut);
+  }} else if (period !== 'all') {{
+    pool = pool.filter(v => v.publish_year === parseInt(period));
+  }}
+
+  const sorted = [...pool].sort((a,b) => b.view_count - a.view_count);
+  const top15  = sorted.slice(0, 15);
+  const bot15  = [...pool].sort((a,b) => a.view_count - b.view_count).slice(0, 15);
+
+  function fmtV(n) {{
+    return n >= 1000000 ? (n/1000000).toFixed(1)+'M' : n >= 1000 ? Math.round(n/1000)+'K' : n.toString();
+  }}
+  function titleRow(v, color) {{
+    return '<a href="https://youtube.com/watch?v='+v.video_id+'" target="_blank" style="display:flex;align-items:baseline;gap:8px;padding:7px 10px;border-radius:8px;background:var(--surface2);border:1px solid var(--border);text-decoration:none;color:var(--text)">'
+      + '<span style="font-size:.8rem;font-weight:700;color:'+color+';flex-shrink:0">'+fmtV(v.view_count)+'</span>'
+      + '<span style="font-size:.85rem;flex:1;line-height:1.4">'+sanitize(v.title)+'</span>'
+      + '<span style="font-size:.7rem;color:var(--text-muted);flex-shrink:0">'+v.publish_date+'</span>'
+      + '</a>';
+  }}
+
+  const topEl = document.getElementById('title-top-list');
+  const botEl = document.getElementById('title-bot-list');
+  if (topEl) topEl.innerHTML = top15.length ? top15.map(v => titleRow(v,'var(--green)')).join('') : '<p style="color:var(--text-muted);font-size:.85rem">No videos found for this period.</p>';
+  if (botEl) botEl.innerHTML = bot15.length ? bot15.map(v => titleRow(v,'var(--red)')).join('')   : '<p style="color:var(--text-muted);font-size:.85rem">No videos found for this period.</p>';
+}}
+
+// ── Video sub-tabs ───────────────────────────────────────────────
+function showVideoSub(name, btn) {{
+  ['longform','shorts'].forEach(n => {{
+    const el = document.getElementById('video-sub-'+n);
+    if (el) el.style.display = n === name ? '' : 'none';
+  }});
+  document.querySelectorAll('.sub-tab-btn').forEach(b => {{
+    b.style.borderBottomColor = 'transparent';
+    b.style.color = 'var(--text-muted)';
+    b.style.fontWeight = '600';
+  }});
+  btn.style.borderBottomColor = 'var(--primary)';
+  btn.style.color = 'var(--primary)';
+  btn.style.fontWeight = '700';
+}}
+
 // ── Initialize ──────────────────────────────────────────────────
 filterAnalytics('all', document.getElementById('fb-all'));
 drawChart(MONTHLY_DATA.slice(-12));
 filterThumbs('all', null);
+filterTitles('all', null);
 
 // ── AI Chat ─────────────────────────────────────────────────────
 (function() {{
