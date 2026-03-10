@@ -205,6 +205,19 @@ def build(videos):
     # Recent low performers
     recent = sorted([v for v in videos if v["publish_year"] >= 2024], key=lambda x: x["view_count"])
 
+    # ── Shorts data ──────────────────────────────────────────────
+    shorts_all       = [v for v in videos if v["duration_minutes"] < 2]
+    shorts_by_views  = sorted(shorts_all, key=lambda x: x["view_count"], reverse=True)
+    top_shorts_ids   = [v["video_id"] for v in shorts_by_views[:18]]
+    recent_shorts    = sorted([v for v in shorts_all if v["publish_year"] >= 2024], key=lambda x: x["view_count"])
+    worst_shorts_ids = [v["video_id"] for v in recent_shorts[:18]]
+    # Shorts yearly decline table
+    shorts_yearly = []
+    for yr in years:
+        sv = [v for v in shorts_all if v["publish_year"] == yr]
+        if sv:
+            shorts_yearly.append({"year": yr, "avg": sum(v["view_count"] for v in sv)/len(sv), "count": len(sv)})
+
     # ── Thumbnails: LONG-FORM ONLY for top grid ───────────────────
     longform_by_views = [v for v in by_views if v["duration_minutes"] >= 2]
     top_thumb_ids = [v["video_id"] for v in longform_by_views[:18]]
@@ -303,6 +316,50 @@ def build(videos):
 
     def kw_rows(kws, sign, color):
         return "".join(f'<tr><td style="color:{color};font-weight:600">{sign} {w}</td><td class="muted">{s:.1f}×</td></tr>' for w,s in kws)
+
+    def shorts_year_rows():
+        r = ""
+        peak = max((s["avg"] for s in shorts_yearly), default=1)
+        for s in shorts_yearly:
+            lf_avg = long_yr.get(s["year"], 0)
+            vs = f'{s["avg"]/lf_avg:.1f}× long-form' if lf_avg else "—"
+            color = "green" if s["avg"] >= peak * 0.5 else "red"
+            r += f'<tr><td><strong>{s["year"]}</strong></td><td class="num {color}">{fmt(s["avg"])}</td><td class="muted">{s["count"]}</td><td class="muted">{vs}</td></tr>'
+        return r
+
+    def shorts_thumb_grid(ids):
+        html = '<div class="thumb-grid">'
+        found = 0
+        for vid_id in ids:
+            b64 = img_b64(f"thumbnails/top/{vid_id}.jpg") or img_b64(f"thumbnails/recent/{vid_id}.jpg")
+            if not b64:
+                continue
+            v     = next((x for x in videos if x["video_id"] == vid_id), {})
+            views = fmt(v.get("view_count", 0))
+            date  = v.get("publish_date", "")
+            title = (v.get("title","")[:45] + "…") if len(v.get("title","")) > 45 else v.get("title","")
+            html += f'''<div class="thumb-item">
+                <a href="{v.get("url","")}" target="_blank">
+                    <img src="data:image/jpeg;base64,{b64}" alt="{title}">
+                </a>
+                <div class="thumb-label">
+                    <strong>{views} views</strong>
+                    <span class="badge short" style="margin:3px 0 4px;display:inline-block">Short</span>
+                    <span style="font-size:.68rem;color:var(--text-muted);display:block">{date}</span>
+                    <span>{title}</span>
+                </div>
+            </div>'''
+            found += 1
+        if found == 0:
+            html += '<p style="color:var(--text-muted);padding:12px">Thumbnails load after next data refresh.</p>'
+        html += "</div>"
+        return html
+
+    def shorts_top_grid():
+        return shorts_thumb_grid(top_shorts_ids)
+
+    def shorts_bot_grid():
+        return shorts_thumb_grid(worst_shorts_ids)
 
     now = datetime.now().strftime("%B %d, %Y")
 
@@ -492,6 +549,7 @@ footer {{ text-align: center; color: var(--text-muted); font-size: .75rem; paddi
   <button class="nav-btn" onclick="show('titles',this)">🔤 Titles</button>
   <button class="nav-btn" onclick="show('videos',this)">🎬 Videos</button>
   <button class="nav-btn" onclick="show('competitors',this)">🏆 Competitors</button>
+  <button class="nav-btn" onclick="show('shorts',this)">⚡ Shorts Strategy</button>
 </nav>
 
 
@@ -874,6 +932,75 @@ footer {{ text-align: center; color: var(--text-muted); font-size: .75rem; paddi
     <div class="insight green"><strong>Two Hot Takes' TikTok Funnel:</strong> They clip the most shocking 30-second moment from every episode for TikTok. Their TikTok (812K) feeds YouTube. You have 1.1M TikTok followers — use them harder to drive YouTube watch time.</div>
     <div class="insight green"><strong>rSlash's Consistent Format:</strong> Every video follows the exact same structure. Viewers know exactly what they're getting. Your show format is strong — but thumbnail/title inconsistency confuses new visitors.</div>
     <div class="insight yellow"><strong>The CPM opportunity:</strong> Relationship/AITA drama earns $4–8 RPM. True crime adjacent content earns $6–12 RPM. You're in the right niche — you just need the views to capitalize on it.</div>
+  </div>
+</div>
+
+<!-- ════════ SHORTS STRATEGY ════════ -->
+<div id="tab-shorts" class="tab">
+  <div class="card" style="margin-top:22px">
+    <div class="card-title">⚡ Shorts Strategy — The Full Picture</div>
+    <p style="font-size:.84rem;color:var(--text-muted);margin:0 0 14px">Your Shorts peaked at 60,453 avg views in 2023. They now average 4,784 in 2025 — a 92% decline. Here's the data, what went wrong, and how to fix it.</p>
+    <div class="table-wrap"><table>
+      <tr><th>Year</th><th>Avg Shorts Views</th><th>Shorts Made</th><th>vs Long-form</th></tr>
+      {shorts_year_rows()}
+    </table></div>
+  </div>
+
+  <div class="two-col" style="gap:14px">
+    <div class="card">
+      <div class="card-title">🔍 Why Your Shorts Collapsed</div>
+      <div class="insight red" style="margin-bottom:10px">❌ <strong>YouTube killed Short-form Shorts in 2023.</strong> The platform shifted its algorithm from rewarding viral Shorts to rewarding watch time. Short clips under 30s that used to hit 100K+ now barely register.</div>
+      <div class="insight red" style="margin-bottom:10px">❌ <strong>Volume killed quality signal.</strong> 547 Shorts in 2025 = one every 16 hours. YouTube's algorithm can't figure out which ones to push — so it pushes none of them.</div>
+      <div class="insight red" style="margin-bottom:10px">❌ <strong>Wrong format for the current algorithm.</strong> Your top Shorts were reaction clips cut from livestreams. Those feel like leftover content. The algorithm now rewards Shorts made intentionally for the format.</div>
+      <div class="insight yellow">💡 <strong>The current winning Shorts format:</strong> 15–33 seconds, mid-action cold open (no intro), single shocking story moment, cliffhanger ending that drives to the long-form video.</div>
+    </div>
+    <div class="card">
+      <div class="card-title">✅ How to Fix Shorts in 2025</div>
+      <div class="insight green" style="margin-bottom:10px"><strong>1. Cut to 2–3 Shorts/week max.</strong> Pick your single best story moment from each long-form episode. One intentional Short beats 20 random clips every time.</div>
+      <div class="insight green" style="margin-bottom:10px"><strong>2. Use the cliffhanger hook.</strong> Start mid-story: "She opened the door and couldn't believe what she saw…" — then cut. Link to the full episode in pinned comment.</div>
+      <div class="insight green" style="margin-bottom:10px"><strong>3. Series format.</strong> "Part 1 / Part 2 / Part 3" Shorts force profile visits and subscriptions. Each Short ends on an unresolved beat.</div>
+      <div class="insight green" style="margin-bottom:10px"><strong>4. Add trending audio in first 5 seconds.</strong> YouTube data shows this gives a 21% reach boost on Shorts.</div>
+      <div class="insight green"><strong>5. Target length: 15–33 seconds.</strong> This range has the highest retention on Shorts. Under 15 feels too rushed. Over 45 loses viewers before the hook lands.</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">🏆 Your Best Shorts Ever — Study These</div>
+    <p style="font-size:.84rem;color:var(--text-muted);margin-bottom:4px">These worked. Look at the hook, the title format, the thumbnail. These are your templates.</p>
+    {shorts_top_grid()}
+  </div>
+
+  <div class="card">
+    <div class="card-title">⚠️ Worst Recent Shorts (2024+) — Stop Making These</div>
+    <p style="font-size:.84rem;color:var(--text-muted);margin-bottom:4px">These are the patterns that are failing right now.</p>
+    {shorts_bot_grid()}
+  </div>
+
+  <div class="card">
+    <div class="card-title">🏆 What Competitors Are Doing With Shorts</div>
+    <div class="table-wrap"><table class="comp-table">
+      <tr><th>Channel</th><th>Subs</th><th>Shorts Strategy</th><th>What Works</th></tr>
+      <tr><td>Two Hot Takes</td><td>875K</td><td>Best 30s moment per episode, TikTok cross-post</td><td>TikTok funnel (812K) feeds YouTube Shorts; consistent host faces</td></tr>
+      <tr><td>rSlash</td><td>1.95M</td><td>Audio-only narration clips, subreddit-tagged</td><td>Massive library = algorithm keeps pushing old Shorts; no face needed</td></tr>
+      <tr><td>Am I The Jerk?</td><td>1.24M</td><td>Voice-acted AITA clips, 30–45s each</td><td>Multiple character voices make clips feel dramatic; $30K/mo estimated</td></tr>
+      <tr><td>Private Diary</td><td>750K</td><td>TTS narration over subtle animation</td><td>Faceless format scales infinitely; consistent aesthetic = instant recognition</td></tr>
+      <tr><td>Karma Stories</td><td>138K</td><td>Daily uploads, justice/revenge focus</td><td>Enthusiastic narration + satisfying endings; r/ProRevenge performs best</td></tr>
+      <tr class="highlight-row"><td><strong>OKStorytime (you)</strong></td><td><strong>1.5M</strong></td><td><strong>Livestream clips (not working)</strong></td><td><strong>Opportunity: intentional Shorts with your hosts' faces + cliffhanger format</strong></td></tr>
+    </table></div>
+    <div class="insight yellow" style="margin-top:14px">💡 <strong>Your unfair advantage:</strong> Every competitor above is either faceless or audio-only. You have actual hosts with personality and reactions. A tight 20-second clip of Sam's face reacting to a shocking story moment — with the cliffhanger cut — is something none of them can replicate.</div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">📋 Shorts Content Calendar Template</div>
+    <div class="table-wrap"><table>
+      <tr><th>Day</th><th>Action</th><th>Format</th><th>Source</th></tr>
+      <tr><td><strong>Sunday</strong></td><td>Post flagship long-form episode</td><td>60–90 min</td><td>New episode</td></tr>
+      <tr class="highlight-row"><td><strong>Monday</strong></td><td>Post Short #1 — best story hook from Sunday's episode</td><td>15–25 sec</td><td>Clip from Sunday</td></tr>
+      <tr><td><strong>Wednesday</strong></td><td>Post 2nd long-form</td><td>40–60 min</td><td>New episode</td></tr>
+      <tr class="highlight-row"><td><strong>Thursday</strong></td><td>Post Short #2 — cliffhanger from Wednesday</td><td>20–33 sec</td><td>Clip from Wednesday</td></tr>
+      <tr><td><strong>Friday</strong></td><td>Optional: Short #3 — "reaction moment" or audience question</td><td>15–30 sec</td><td>Studio moment</td></tr>
+    </table></div>
+    <p style="font-size:.82rem;color:var(--text-muted);margin-top:10px">2–3 intentional Shorts/week tied to your long-form > 20+ random clips. Every Short should have a pinned comment linking to the full episode.</p>
   </div>
 </div>
 
