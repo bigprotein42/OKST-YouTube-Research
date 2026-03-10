@@ -1092,21 +1092,17 @@ drawChart(MONTHLY_DATA.slice(-12));
     }}
   }});
 
+  function sanitize(s) {{ return String(s).replace(/`/g, "'").replace(/[$]/g, ''); }}
   function buildSystemPrompt() {{
     const rows = ALL_VIDEOS.slice(0,500).map(v =>
-      `${{v.publish_date}}|${{v.duration_minutes}}min|${{v.view_count}}views|${{v.title}}`
+      v.publish_date+'|'+v.duration_minutes+'min|'+v.view_count+'views|'+sanitize(v.title)
     ).join('\\n');
-    const monthly = MONTHLY_DATA.map(m => `${{m.month}}: ${{m.avg}} avg (${{m.count}} videos)`).join(', ');
-    return `You are an expert YouTube analytics advisor for the channel OKStorytime (OKOPShow).
-You have access to their full video data. Use it to give specific, data-backed answers.
-
-MONTHLY TREND (avg views per video):
-${{monthly}}
-
-TOP 500 VIDEOS (date|duration|views|title):
-${{rows}}
-
-When the user asks why views dropped, reference specific months and videos. Be direct, concise, and actionable.`;
+    const monthly = MONTHLY_DATA.map(m => m.month+': '+m.avg+' avg ('+m.count+' videos)').join(', ');
+    return 'You are an expert YouTube analytics advisor for the channel OKStorytime (OKOPShow).\\n'
+      + 'You have access to their full video data. Use it to give specific, data-backed answers.\\n\\n'
+      + 'MONTHLY TREND (avg views per video):\\n' + monthly + '\\n\\n'
+      + 'TOP 500 VIDEOS (date|duration|views|title):\\n' + rows + '\\n\\n'
+      + 'When the user asks why views dropped, reference specific months and videos. Be direct, concise, and actionable.';
   }}
 
   async function sendChat() {{
@@ -1192,25 +1188,20 @@ When the user asks why views dropped, reference specific months and videos. Be d
       'My boss demanded I work on my wedding day… so I quit live on Zoom'
     ];
 
-    const prompt = `You are a YouTube title expert for the channel OKStorytime — a reddit story reaction channel.
-
-PROVEN TITLE RULES for this channel:
-- Start with first-person drama or shocking action (not the host name, not a subreddit tag)
-- Must create unresolved tension — viewer NEEDS to know what happens
-- Use strong emotional words: TRUTH, SECRET, REVEALED, BONED, ABANDONED, DEMANDED, EXPOSED
-- Ellipsis (…) works well to create a cliffhanger mid-title
-- Best performing words to include if natural: mega, weekly, recap, compilation, truth, dark, reaction, hours
-- AVOID: clip, tifu, maliciouscompliance, askreddit, full, flag, host names (Denise, Brady, Joanna)
-- AVOID leading with: "r/", "rSlash", host names, or "full episode"
-- Length: 60–80 characters is ideal
-
-TOP PERFORMING TITLE EXAMPLES from this channel:
-${{exampleTitles.map((t,i)=>`${{i+1}}. ${{t}}`).join('\\n')}}
-
-STORY TO TITLE:
-${{story}}
-
-Generate 8 YouTube title options. Number them 1–8. Each title on its own line. No extra commentary — just the numbered list.`;
+    const prompt = 'You are a YouTube title expert for the channel OKStorytime — a reddit story reaction channel.\\n\\n'
+      + 'PROVEN TITLE RULES for this channel:\\n'
+      + '- Start with first-person drama or shocking action (not the host name, not a subreddit tag)\\n'
+      + '- Must create unresolved tension — viewer NEEDS to know what happens\\n'
+      + '- Use strong emotional words: TRUTH, SECRET, REVEALED, BONED, ABANDONED, DEMANDED, EXPOSED\\n'
+      + '- Ellipsis (…) works well to create a cliffhanger mid-title\\n'
+      + '- Best performing words to include if natural: mega, weekly, recap, compilation, truth, dark, reaction, hours\\n'
+      + '- AVOID: clip, tifu, maliciouscompliance, askreddit, full, flag, host names (Denise, Brady, Joanna)\\n'
+      + '- AVOID leading with: "r/", "rSlash", host names, or "full episode"\\n'
+      + '- Length: 60-80 characters is ideal\\n\\n'
+      + 'TOP PERFORMING TITLE EXAMPLES from this channel:\\n'
+      + exampleTitles.map((t,i) => (i+1)+'. '+t).join('\\n') + '\\n\\n'
+      + 'STORY TO TITLE:\\n' + sanitize(story) + '\\n\\n'
+      + 'Generate 8 YouTube title options. Number them 1-8. Each title on its own line. No extra commentary — just the numbered list.';
 
     try {{
       const resp = await fetch('https://api.anthropic.com/v1/messages', {{
