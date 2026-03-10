@@ -2,7 +2,7 @@ name: Refresh Analytics Report
 
 on:
   schedule:
-    - cron: '0 12 * * 0'   # Every Sunday at noon UTC (8am ET)
+    - cron: '0 12 * * *'   # Every day at noon UTC (8am ET)
   workflow_dispatch:         # Manual trigger from GitHub UI
 
 permissions:
