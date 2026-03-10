@@ -3,8 +3,60 @@ Generates a full interactive HTML report for OKStorytime
 Includes: analytics with Chart.js, thumbnail analysis, action plan, competitor context
 """
 
-import csv, re, os, base64, json
-from datetime import datetime
+import csv, re, os, base64, json, time
+import xml.etree.ElementTree as ET
+from datetime import datetime, timezone, timedelta
+import requests as _req
+
+# ── Competitor channels (Reddit story niche) ──────────────────────
+COMPETITORS = [
+    {"name": "Two Hot Takes",  "id": "UCvUW0xT38Ho7qyUmBgBZXQA"},
+    {"name": "rSlash",         "id": "UC0-swBG9Ne0Vh4OuoJ2bjbA"},
+    {"name": "MrBallen",       "id": "UCtPrkXdtCM5DACLufB9jbsA"},
+]
+
+def fetch_competitor_thumbs(days=7):
+    """Pull thumbnails from competitor RSS feeds — no API key needed."""
+    os.makedirs("thumbnails/competitors", exist_ok=True)
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+    items = []
+    for ch in COMPETITORS:
+        try:
+            rss = f"https://www.youtube.com/feeds/videos.xml?channel_id={ch['id']}"
+            r = _req.get(rss, timeout=10)
+            if r.status_code != 200:
+                continue
+            root = ET.fromstring(r.content)
+            ns = {"a": "http://www.w3.org/2005/Atom",
+                  "yt": "http://www.youtube.com/xml/schemas/2015"}
+            for entry in root.findall("a:entry", ns):
+                vid  = entry.find("yt:videoId", ns).text
+                pub  = entry.find("a:published", ns).text
+                title= entry.find("a:title", ns).text or ""
+                dt   = datetime.fromisoformat(pub)
+                if dt >= cutoff:
+                    items.append({"channel": ch["name"], "video_id": vid,
+                                  "title": title, "published": dt.strftime("%b %d"),
+                                  "url": f"https://youtube.com/watch?v={vid}"})
+        except Exception as e:
+            print(f"  ✗ {ch['name']}: {e}")
+
+    # Download thumbnails
+    for item in items:
+        path = f"thumbnails/competitors/{item['video_id']}.jpg"
+        if os.path.exists(path):
+            continue
+        for q in ["maxresdefault", "hqdefault", "mqdefault"]:
+            try:
+                r = _req.get(f"https://i.ytimg.com/vi/{item['video_id']}/{q}.jpg", timeout=8)
+                if r.status_code == 200 and len(r.content) > 5000:
+                    with open(path, "wb") as f:
+                        f.write(r.content)
+                    break
+            except:
+                pass
+        time.sleep(0.05)
+    return items
 
 
 def load_csv(filename="okstorytime_videos.csv"):
@@ -40,6 +92,11 @@ def fmt(n): return f"{n:,.0f}"
 
 
 def build(videos):
+    # Fetch competitor thumbnails upfront
+    print("Fetching competitor thumbnails from RSS feeds...")
+    comp_items = fetch_competitor_thumbs(days=7)
+    print(f"  Found {len(comp_items)} competitor videos from the last 7 days")
+
     by_views    = sorted(videos, key=lambda x: x["view_count"], reverse=True)
     total_views = sum(v["view_count"] for v in videos)
     avg_views   = total_views / len(videos)
@@ -113,7 +170,8 @@ def build(videos):
     # ── Thumbnails: LONG-FORM ONLY for top grid ───────────────────
     longform_by_views = [v for v in by_views if v["duration_minutes"] >= 2]
     top_thumb_ids = [v["video_id"] for v in longform_by_views[:18]]
-    bot_thumb_ids = [v["video_id"] for v in recent[:18]]
+    recent_longform = [v for v in recent if v["duration_minutes"] >= 2]
+    bot_thumb_ids = [v["video_id"] for v in recent_longform[:18]]
 
     def thumb_grid(ids, folder):
         html = '<div class="thumb-grid">'
@@ -123,17 +181,47 @@ def build(videos):
                 v     = next((x for x in videos if x["video_id"] == vid_id), {})
                 views = fmt(v.get("view_count", 0))
                 mins  = v.get("duration_minutes", 0)
+                date  = v.get("publish_date", "")
                 title = (v.get("title","")[:45] + "…") if len(v.get("title","")) > 45 else v.get("title","")
                 html += f'''<div class="thumb-item">
                     <img src="data:image/jpeg;base64,{b64}" alt="{title}">
                     <div class="thumb-label">
                         <strong>{views} views</strong>
-                        <span class="thumb-dur">{mins:.0f} min</span>
+                        <div style="display:flex;gap:6px;margin:3px 0 4px;align-items:center">
+                            <span class="thumb-dur">{mins:.0f} min</span>
+                            <span style="font-size:.68rem;color:var(--text-muted)">{date}</span>
+                        </div>
                         <span>{title}</span>
                     </div>
                 </div>'''
         html += "</div>"
         return html
+
+    def comp_grid(items):
+        if not items:
+            return '<p style="color:var(--text-muted);padding:16px 0">No competitor videos found in the last 7 days. Check back after the next refresh.</p>'
+        html = '<div class="thumb-grid">'
+        for item in items:
+            path = f"thumbnails/competitors/{item['video_id']}.jpg"
+            b64  = img_b64(path)
+            if not b64:
+                continue
+            ch    = item["channel"]
+            title = (item["title"][:45] + "…") if len(item["title"]) > 45 else item["title"]
+            html += f'''<div class="thumb-item">
+                <a href="{item['url']}" target="_blank">
+                    <img src="data:image/jpeg;base64,{b64}" alt="{title}">
+                </a>
+                <div class="thumb-label">
+                    <span class="thumb-dur">{ch}</span>
+                    <strong style="font-size:.8rem;margin-top:3px;display:block">{title}</strong>
+                    <span style="font-size:.7rem;color:var(--text-muted)">{item['published']}</span>
+                </div>
+            </div>'''
+        html += "</div>"
+        return html
+
+    competitor_grid = comp_grid(comp_items)
 
     top_grid = thumb_grid(top_thumb_ids, "top")
     bot_grid = thumb_grid(bot_thumb_ids, "bottom")
@@ -271,10 +359,19 @@ a:hover {{ text-decoration: underline; }}
 @media(max-width: 720px) {{ .two-col {{ grid-template-columns: 1fr; }} }}
 .formula-grid {{ display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }}
 @media(max-width: 720px) {{ .formula-grid {{ grid-template-columns: 1fr; }} }}
-.formula {{ background: #0f0a1e; color: #e2e8f0; border-radius: var(--radius); padding: 22px; font-family: 'SF Mono', 'Fira Code', monospace; font-size: .82rem; line-height: 2.1; border: 1px solid #2d1f5e; }}
-.formula .good {{ color: #34d399; }}
-.formula .bad  {{ color: #f87171; }}
-.formula .key  {{ color: #a78bfa; }}
+.formula {{ border-radius: var(--radius); padding: 20px; }}
+.formula.do   {{ background: var(--green-bg); border: 1px solid #a7f3d0; }}
+.formula.dont {{ background: var(--red-bg);   border: 1px solid #fecaca; }}
+.formula-title {{ font-weight: 800; font-size: .9rem; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }}
+.formula.do   .formula-title {{ color: #065f46; }}
+.formula.dont .formula-title {{ color: #991b1b; }}
+.formula ul {{ list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }}
+.formula li {{ display: flex; align-items: flex-start; gap: 10px; padding: 8px 12px; border-radius: 8px; font-size: .875rem; line-height: 1.4; }}
+.formula.do   li {{ background: rgba(16,185,129,.1); }}
+.formula.dont li {{ background: rgba(239,68,68,.07); }}
+.formula li .icon {{ flex-shrink: 0; width: 18px; text-align: center; }}
+.formula li .lbl {{ font-weight: 700; color: var(--text); margin-right: 4px; }}
+.formula li .desc {{ color: var(--text-muted); }}
 .thumb-grid {{ display: grid; grid-template-columns: repeat(auto-fill, minmax(175px, 1fr)); gap: 14px; margin-top: 14px; }}
 .thumb-item {{ border-radius: 10px; overflow: hidden; border: 1px solid var(--border); background: var(--surface); transition: transform .15s, box-shadow .15s; }}
 .thumb-item:hover {{ transform: translateY(-2px); box-shadow: var(--shadow-md); }}
@@ -295,6 +392,34 @@ a:hover {{ text-decoration: underline; }}
 .chart-stat .cs-lbl {{ color: var(--text-muted); }}
 .comp-table td:first-child {{ font-weight: 600; }}
 footer {{ text-align: center; color: var(--text-muted); font-size: .75rem; padding: 32px; border-top: 1px solid var(--border); }}
+/* ── AI CHAT ────────────────────────────────── */
+.chat-wrap {{ display: flex; flex-direction: column; gap: 0; }}
+.chat-key-bar {{ display: flex; gap: 8px; align-items: center; padding: 12px 16px; background: var(--primary-bg); border-radius: 10px; margin-bottom: 14px; font-size: .82rem; }}
+.chat-key-bar input {{ flex: 1; border: 1px solid var(--border-strong); border-radius: 8px; padding: 6px 10px; font-size: .82rem; font-family: inherit; }}
+.chat-key-bar button {{ background: var(--primary); color: white; border: none; border-radius: 8px; padding: 6px 14px; cursor: pointer; font-size: .82rem; font-weight: 600; font-family: inherit; }}
+.chat-messages {{ min-height: 200px; max-height: 420px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding: 4px 0 16px; }}
+.chat-msg {{ display: flex; gap: 10px; align-items: flex-start; }}
+.chat-msg.user {{ flex-direction: row-reverse; }}
+.chat-avatar {{ width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font-size: .85rem; flex-shrink: 0; }}
+.chat-msg.ai .chat-avatar {{ background: var(--primary-bg); }}
+.chat-msg.user .chat-avatar {{ background: #dbeafe; }}
+.chat-bubble {{ padding: 10px 14px; border-radius: 12px; font-size: .875rem; line-height: 1.55; max-width: 85%; }}
+.chat-bubble.assistant {{ background: var(--surface2); border: 1px solid var(--border); border-radius: 4px 12px 12px 12px; align-self: flex-start; }}
+.chat-bubble.user {{ background: var(--primary); color: white; border-radius: 12px 4px 12px 12px; align-self: flex-end; }}
+@keyframes blink {{ 0%,100%{{opacity:.2}} 50%{{opacity:1}} }}
+.thinking-dot {{ display: inline-block; width: 8px; height: 8px; background: var(--text-muted); border-radius: 50%; animation: blink 1s infinite; }}
+.chat-input-row {{ display: flex; gap: 8px; margin-top: 4px; }}
+.chat-input-row textarea {{ flex: 1; border: 1px solid var(--border-strong); border-radius: 10px; padding: 10px 14px; font-size: .875rem; font-family: inherit; resize: none; line-height: 1.45; max-height: 120px; outline: none; transition: border-color .15s; }}
+.chat-input-row textarea:focus {{ border-color: var(--primary); }}
+.chat-send {{ background: var(--primary); color: white; border: none; border-radius: 10px; padding: 0 18px; cursor: pointer; font-size: 1.1rem; transition: opacity .15s; }}
+.chat-send:disabled {{ opacity: .4; cursor: default; }}
+.chat-suggestions {{ display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }}
+.chat-chip {{ background: var(--primary-bg); color: var(--primary); border: 1px solid #ddd6fe; border-radius: 20px; padding: 4px 12px; font-size: .78rem; font-weight: 600; cursor: pointer; transition: all .15s; white-space: nowrap; }}
+.chat-chip:hover {{ background: var(--primary); color: white; }}
+.typing-dot {{ display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--text-muted); margin: 0 1px; animation: blink 1.2s infinite; }}
+.typing-dot:nth-child(2) {{ animation-delay: .2s; }}
+.typing-dot:nth-child(3) {{ animation-delay: .4s; }}
+@keyframes blink {{ 0%,80%,100%{{opacity:.2}} 40%{{opacity:1}} }}
 </style>
 </head>
 <body>
@@ -332,14 +457,22 @@ footer {{ text-align: center; color: var(--text-muted); font-size: .75rem; paddi
 <div id="tab-summary" class="tab active">
   <div class="card" style="margin-top:22px">
     <div class="card-title">🔑 Why You're Losing Viewers — The Short Version</div>
-    <div class="insight red">❌ <strong>Your Shorts collapsed 92%.</strong> They averaged 60,453 views in 2023. Now they average 4,784 in 2025. Yet you made 547 Shorts in 2025 — your highest Short volume ever.</div>
-    <div class="insight red">❌ <strong>Volume is killing quality reach.</strong> October 2025: 184 videos uploaded → 8,640 avg views. April 2024: 50 videos → 36,276 avg views. Fewer videos = more views per video.</div>
-    <div class="insight red">❌ <strong>New red studio isn't recognized.</strong> Viewers built a strong association with purple/blue + orange. The red backdrop looks like a different channel.</div>
-    <div class="insight red">❌ <strong>Guest thumbnails don't convert.</strong> New viewers don't know your guests. Every guest thumbnail tested below average.</div>
-    <div class="insight green">✅ <strong>Long-form is still working.</strong> Long-form averaged 39,629 views in 2024 — nearly 10× Shorts that same year.</div>
-    <div class="insight green">✅ <strong>Sunday is your superpower.</strong> Sunday averages 46,649 views vs 15,035 on Wednesday — 3.1× difference purely from posting day.</div>
-    <div class="insight green">✅ <strong>60–90 min compilations are your #1 format.</strong> 48,018 avg views — more than double Shorts, 10× better than 2–10 min clips.</div>
-    <div class="insight green">✅ <strong>Your podcast is thriving.</strong> Apple Podcasts #5 Comedy in the US. That audience can convert to YouTube viewers.</div>
+    <div class="two-col" style="margin-top:14px;gap:14px">
+      <div>
+        <div style="font-size:.7rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--red);margin-bottom:8px">⚠ Problems</div>
+        <div class="insight red">❌ <strong>Your Shorts collapsed 92%.</strong> They averaged 60,453 views in 2023. Now they average 4,784 in 2025. Yet you made 547 Shorts in 2025 — your highest Short volume ever.</div>
+        <div class="insight red">❌ <strong>Volume is killing quality reach.</strong> October 2025: 184 videos uploaded → 8,640 avg views. April 2024: 50 videos → 36,276 avg views. Fewer videos = more views per video.</div>
+        <div class="insight red">❌ <strong>New red studio isn't recognized.</strong> Viewers built a strong association with purple/blue + orange. The red backdrop looks like a different channel.</div>
+        <div class="insight red">❌ <strong>Guest thumbnails don't convert.</strong> New viewers don't know your guests. Every guest thumbnail tested below average.</div>
+      </div>
+      <div>
+        <div style="font-size:.7rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--green);margin-bottom:8px">✓ Wins</div>
+        <div class="insight green">✅ <strong>Long-form is still working.</strong> Long-form averaged 39,629 views in 2024 — nearly 10× Shorts that same year.</div>
+        <div class="insight green">✅ <strong>Sunday is your superpower.</strong> Sunday averages 46,649 views vs 15,035 on Wednesday — 3.1× difference purely from posting day.</div>
+        <div class="insight green">✅ <strong>60–90 min compilations are your #1 format.</strong> 48,018 avg views — more than double Shorts, 10× better than 2–10 min clips.</div>
+        <div class="insight green">✅ <strong>Your podcast is thriving.</strong> Apple Podcasts #5 Comedy in the US. That audience can convert to YouTube viewers.</div>
+      </div>
+    </div>
   </div>
   <div class="two-col">
     <div class="card">
@@ -404,29 +537,31 @@ footer {{ text-align: center; color: var(--text-muted); font-size: .75rem; paddi
   <div class="card" style="margin-top:22px">
     <div class="card-title">🎯 The Winning Thumbnail Formula</div>
     <div class="formula-grid">
-      <div class="formula">
-<span class="good">✅ DO THIS</span>
-
-<span class="key">Host:</span>       Sam or John only (no guests)
-<span class="key">Shot:</span>       Extreme close-up — face = 80% of frame
-<span class="key">Background:</span> Purple or blue studio
-<span class="key">Clothing:</span>   Orange (your brand color)
-<span class="key">Expression:</span> Mouth open — shocked, laughing, disbelief
-<span class="key">Eyes:</span>       Wide open, staring at camera
-<span class="key">Text:</span>       Optional small caption at top
-<span class="key">Layout:</span>     Clean — zero clutter
+      <div class="formula do">
+        <div class="formula-title">✅ DO THIS</div>
+        <ul>
+          <li><span class="icon">👤</span><div><span class="lbl">Host:</span><span class="desc">Sam or John only — no guests</span></div></li>
+          <li><span class="icon">🔍</span><div><span class="lbl">Shot:</span><span class="desc">Extreme close-up — face fills 80% of frame</span></div></li>
+          <li><span class="icon">🎨</span><div><span class="lbl">Background:</span><span class="desc">Purple or blue studio only</span></div></li>
+          <li><span class="icon">🟠</span><div><span class="lbl">Clothing:</span><span class="desc">Orange — your brand color</span></div></li>
+          <li><span class="icon">😱</span><div><span class="lbl">Expression:</span><span class="desc">Mouth open — shocked, laughing, disbelief</span></div></li>
+          <li><span class="icon">👀</span><div><span class="lbl">Eyes:</span><span class="desc">Wide open, staring directly at camera</span></div></li>
+          <li><span class="icon">🔤</span><div><span class="lbl">Text:</span><span class="desc">Optional small caption at top only</span></div></li>
+          <li><span class="icon">✨</span><div><span class="lbl">Layout:</span><span class="desc">Clean — zero clutter</span></div></li>
+        </ul>
       </div>
-      <div class="formula">
-<span class="bad">❌ STOP DOING THIS</span>
-
-<span class="bad">Guests</span> in thumbnails (viewers don't know them)
-<span class="bad">Red background</span> — unrecognized new identity
-<span class="bad">Profile/side shots</span> — no eye contact = no click
-<span class="bad">Eyes closed</span> or looking down
-<span class="bad">Livestream screenshots</span> with UI overlays
-<span class="bad">Outdoor shots</span> — no studio identity
-<span class="bad">Stock/AI images</span> (Santa, meme photos)
-<span class="bad">Host name bars</span> ("SAM") as the main hook
+      <div class="formula dont">
+        <div class="formula-title">❌ STOP DOING THIS</div>
+        <ul>
+          <li><span class="icon">🚫</span><div><span class="lbl">Guests</span><span class="desc"> — viewers don't know them, won't click</span></div></li>
+          <li><span class="icon">🚫</span><div><span class="lbl">Red background</span><span class="desc"> — looks like a different channel</span></div></li>
+          <li><span class="icon">🚫</span><div><span class="lbl">Profile/side shots</span><span class="desc"> — no eye contact = no click</span></div></li>
+          <li><span class="icon">🚫</span><div><span class="lbl">Eyes closed</span><span class="desc"> or looking down</span></div></li>
+          <li><span class="icon">🚫</span><div><span class="lbl">Livestream screenshots</span><span class="desc"> with UI overlays</span></div></li>
+          <li><span class="icon">🚫</span><div><span class="lbl">Outdoor shots</span><span class="desc"> — no studio identity</span></div></li>
+          <li><span class="icon">🚫</span><div><span class="lbl">Stock/AI images</span><span class="desc"> (Santa, meme photos)</span></div></li>
+          <li><span class="icon">🚫</span><div><span class="lbl">Host name bars</span><span class="desc"> ("SAM") as the main hook</span></div></li>
+        </ul>
       </div>
     </div>
   </div>
@@ -436,10 +571,17 @@ footer {{ text-align: center; color: var(--text-muted); font-size: .75rem; paddi
     {top_grid}
   </div>
   <div class="card">
-    <div class="card-title">⚠️ Lowest Performing Recent Thumbnails — Avoid These Patterns</div>
-    <p style="font-size:.84rem;color:var(--text-muted);margin-bottom:4px">Recent 2024+ videos with fewest views · red backgrounds, guests, profile shots, cluttered UI, low energy.</p>
+    <div class="card-title">⚠️ Your Lowest Performing Long-Form Thumbnails — Avoid These Patterns</div>
+    <p style="font-size:.84rem;color:var(--text-muted);margin-bottom:4px">Long-form 2024+ videos with fewest views · red backgrounds, guests, profile shots, cluttered UI, low energy.</p>
     {bot_grid}
   </div>
+
+  <div class="card">
+    <div class="card-title">🏆 Competitor Thumbnails — Reddit Story Niche (Last 7 Days)</div>
+    <p style="font-size:.84rem;color:var(--text-muted);margin-bottom:16px">Best performing thumbnails from Two Hot Takes, rSlash, MrBallen &amp; Comfort Level this week. Study what's working for them.</p>
+    {competitor_grid}
+  </div>
+
 </div>
 
 
@@ -505,6 +647,46 @@ footer {{ text-align: center; color: var(--text-muted); font-size: .75rem; paddi
       <tr><th>Year</th><th>Overall Avg</th><th>Videos</th><th style="color:var(--red)">Shorts Avg</th><th style="color:var(--green)">Long-form Avg</th></tr>
       {year_rows()}
     </table></div>
+  </div>
+
+  <!-- AI Chat -->
+  <div class="card">
+    <div class="card-title">🤖 Ask Claude About Your Analytics</div>
+    <div class="chat-wrap">
+
+      <!-- API key setup -->
+      <div class="chat-key-bar" id="key-bar">
+        <span>🔑</span>
+        <input type="password" id="api-key-input" placeholder="Paste your Anthropic API key to enable chat (stored locally, never uploaded)" />
+        <button onclick="saveKey()">Save</button>
+        <button onclick="clearKey()" style="background:#f3f4f6;color:var(--text-muted)">Clear</button>
+      </div>
+      <div id="key-saved" style="display:none;align-items:center;gap:8px;padding:8px 12px;background:#f0fdf4;border-radius:8px;font-size:.83rem;color:var(--green)">
+        ✅ API key saved locally &nbsp;<button onclick="clearKey()" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:.8rem;text-decoration:underline;padding:0">Remove</button>
+      </div>
+
+      <!-- Suggestion chips -->
+      <div class="chat-suggestions">
+        <span class="chat-chip" onclick="askChip(this)">Why did views drop in late 2025?</span>
+        <span class="chat-chip" onclick="askChip(this)">What's our best month ever and why?</span>
+        <span class="chat-chip" onclick="askChip(this)">Which day should we post for max views?</span>
+        <span class="chat-chip" onclick="askChip(this)">How do Shorts compare to long-form?</span>
+        <span class="chat-chip" onclick="askChip(this)">What's our fastest path to 100K avg views?</span>
+      </div>
+
+      <!-- Messages -->
+      <div class="chat-messages" id="chat-messages">
+        <div class="chat-bubble assistant">Hi! I'm Claude. I have full access to your OKStorytime channel data — {len(videos):,} videos, every monthly trend, day-of-week performance, and more. Ask me anything about why your views changed, what's working, or how to grow. Add your API key above to get started.</div>
+      </div>
+
+      <!-- Input -->
+      <div class="chat-input-row">
+        <textarea id="chat-input" rows="1" placeholder="Ask about your analytics… (Enter to send, Shift+Enter for new line)"
+          oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px'"
+          onkeydown="if(event.key==='Enter'&&!event.shiftKey){{event.preventDefault();sendChat()}}"></textarea>
+        <button class="chat-send" id="chat-send" onclick="sendChat()" title="Send">➤</button>
+      </div>
+    </div>
   </div>
 
 </div>
@@ -772,6 +954,116 @@ function drawChart(data) {{
 // ── Initialize ──────────────────────────────────────────────────
 filterAnalytics('all', document.getElementById('fb-all'));
 drawChart(MONTHLY_DATA.slice(-12));
+
+// ── AI Chat ─────────────────────────────────────────────────────
+(function() {{
+  const KEY_LS = 'okst_claude_key';
+
+  function saveKey() {{
+    const v = document.getElementById('api-key-input').value.trim();
+    if (!v) return;
+    localStorage.setItem(KEY_LS, v);
+    document.getElementById('api-key-input').value = '';
+    document.getElementById('key-bar').style.display = 'none';
+    document.getElementById('key-saved').style.display = 'flex';
+  }}
+  function clearKey() {{
+    localStorage.removeItem(KEY_LS);
+    document.getElementById('api-key-input').value = '';
+    document.getElementById('key-bar').style.display = 'flex';
+    document.getElementById('key-saved').style.display = 'none';
+  }}
+  function getKey() {{ return localStorage.getItem(KEY_LS); }}
+
+  // Show saved indicator on load
+  window.addEventListener('DOMContentLoaded', () => {{
+    if (getKey()) {{
+      document.getElementById('key-bar').style.display = 'none';
+      document.getElementById('key-saved').style.display = 'flex';
+    }}
+  }});
+
+  function buildSystemPrompt() {{
+    const rows = ALL_VIDEOS.slice(0,500).map(v =>
+      `${{v.publish_date}}|${{v.duration_minutes}}min|${{v.view_count}}views|${{v.title}}`
+    ).join('\\n');
+    const monthly = MONTHLY_DATA.map(m => `${{m.month}}: ${{m.avg}} avg (${{m.count}} videos)`).join(', ');
+    return `You are an expert YouTube analytics advisor for the channel OKStorytime (OKOPShow).
+You have access to their full video data. Use it to give specific, data-backed answers.
+
+MONTHLY TREND (avg views per video):
+${{monthly}}
+
+TOP 500 VIDEOS (date|duration|views|title):
+${{rows}}
+
+When the user asks why views dropped, reference specific months and videos. Be direct, concise, and actionable.`;
+  }}
+
+  async function sendChat() {{
+    const input = document.getElementById('chat-input');
+    const msg = input.value.trim();
+    if (!msg) return;
+    const key = getKey();
+    if (!key) {{
+      appendBubble('assistant', '⚠️ Please save your Anthropic API key first using the field above.');
+      return;
+    }}
+    input.value = '';
+    appendBubble('user', msg);
+    const thinkEl = appendBubble('assistant', '<span class="thinking-dot"></span> Thinking…');
+    document.getElementById('chat-send').disabled = true;
+
+    try {{
+      const resp = await fetch('https://api.anthropic.com/v1/messages', {{
+        method: 'POST',
+        headers: {{
+          'Content-Type': 'application/json',
+          'x-api-key': key,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true'
+        }},
+        body: JSON.stringify({{
+          model: 'claude-opus-4-6',
+          max_tokens: 1024,
+          system: buildSystemPrompt(),
+          messages: [{{ role: 'user', content: msg }}]
+        }})
+      }});
+      const data = await resp.json();
+      if (data.error) {{
+        thinkEl.innerHTML = '⚠️ API error: ' + (data.error.message || JSON.stringify(data.error));
+      }} else {{
+        const text = data.content?.[0]?.text || '(no response)';
+        thinkEl.innerHTML = text.replace(/\\n/g, '<br>');
+      }}
+    }} catch(e) {{
+      thinkEl.innerHTML = '⚠️ Request failed: ' + e.message;
+    }}
+    document.getElementById('chat-send').disabled = false;
+  }}
+
+  function askChip(el) {{
+    document.getElementById('chat-input').value = el.textContent;
+    sendChat();
+  }}
+
+  function appendBubble(role, html) {{
+    const box = document.getElementById('chat-messages');
+    const div = document.createElement('div');
+    div.className = 'chat-bubble ' + role;
+    div.innerHTML = html;
+    box.appendChild(div);
+    box.scrollTop = box.scrollHeight;
+    return div;
+  }}
+
+  // Expose to global scope
+  window.saveKey = saveKey;
+  window.clearKey = clearKey;
+  window.sendChat = sendChat;
+  window.askChip = askChip;
+}})();
 </script>
 </body>
 </html>"""
