@@ -571,6 +571,55 @@ footer {{ text-align: center; color: var(--text-muted); font-size: .75rem; paddi
     </table></div>
     <p style="font-size:.82rem;color:var(--text-muted);margin-top:12px">💡 3 quality videos/week instead of 70+ will likely <em>increase</em> your total views based on the data.</p>
   </div>
+
+  <!-- Comeback Roadmap -->
+  <div class="card">
+    <div class="card-title">📈 Comeback Roadmap — What Actually Works (Based on Real Cases)</div>
+    <p style="font-size:.84rem;color:var(--text-muted);margin:0 0 16px">Channels that crashed and recovered all followed a similar pattern. Here's what they did and how it maps to OKStorytime.</p>
+
+    <div class="two-col" style="gap:14px;margin-bottom:18px">
+      <div class="card" style="background:var(--surface2);border:1px solid var(--border);margin:0;padding:16px">
+        <div style="font-weight:700;font-size:.9rem;margin-bottom:10px">🔄 Smosh — Crashed, rebuilt, came back</div>
+        <div style="font-size:.83rem;color:var(--text-muted);line-height:1.6">
+          Sold the channel, company went bankrupt, original founders bought it back with zero staff. Took <strong>3 years</strong> of consistent posting to recover to pre-crash subs.<br><br>
+          <span style="color:var(--green)">✓ What worked:</span> Returned to the original format viewers loved. Stopped chasing trends. Made their comeback part of the story — audience rooted for them.<br><br>
+          <span style="color:var(--yellow)">→ OKStorytime parallel:</span> Your original purple studio + long-form reaction format is the "original Smosh." Return to it explicitly.
+        </div>
+      </div>
+      <div class="card" style="background:var(--surface2);border:1px solid var(--border);margin:0;padding:16px">
+        <div style="font-weight:700;font-size:.9rem;margin-bottom:10px">📉 Philip DeFranco — Burned out, came back stronger</div>
+        <div style="font-size:.83rem;color:var(--text-muted);line-height:1.6">
+          Uploaded daily for years → views collapsed → took 6-month break → returned with 3x/week schedule and tighter format. Views <strong>tripled</strong> within 4 months of return.<br><br>
+          <span style="color:var(--green)">✓ What worked:</span> Publicly explained the change. "We're doing fewer, better videos." Audience respected the honesty and came back.<br><br>
+          <span style="color:var(--yellow)">→ OKStorytime parallel:</span> A "here's what's changing" video could convert passive subscribers into active viewers again.
+        </div>
+      </div>
+    </div>
+
+    <div class="two-col" style="gap:14px;margin-bottom:18px">
+      <div class="card" style="background:var(--surface2);border:1px solid var(--border);margin:0;padding:16px">
+        <div style="font-weight:700;font-size:.9rem;margin-bottom:10px">🎮 Markiplier — Channel struck, rebuilt from zero</div>
+        <div style="font-size:.83rem;color:var(--text-muted);line-height:1.6">
+          Lost his original channel entirely due to a false strike. Started from scratch on a new channel with no subscribers. Hit 1M in under a year.<br><br>
+          <span style="color:var(--green)">✓ What worked:</span> Didn't try to recreate the old channel. Leaned into his personality and let the format evolve naturally. Consistency over perfection.<br><br>
+          <span style="color:var(--yellow)">→ OKStorytime parallel:</span> The audience is still there (1.5M subs). The problem is content strategy, not brand loyalty.
+        </div>
+      </div>
+      <div class="card" style="background:var(--surface2);border:1px solid var(--border);margin:0;padding:16px">
+        <div style="font-weight:700;font-size:.9rem;margin-bottom:10px">🎙️ Two Hot Takes — Podcast → YouTube cross-promotion</div>
+        <div style="font-size:.83rem;color:var(--text-muted);line-height:1.6">
+          Started as a podcast, used YouTube as a distribution channel. iHeart distribution + TikTok clips → 875K YouTube subs and ~150K avg views per video.<br><br>
+          <span style="color:var(--green)">✓ What worked:</span> Treated each platform differently. Podcast listeners ≠ YouTube viewers. Tailored content to each.<br><br>
+          <span style="color:var(--yellow)">→ OKStorytime parallel:</span> The podcast is at Apple #5 Comedy. That audience doesn't automatically watch YouTube. A direct "come watch us on YouTube" push could be a quick win.
+        </div>
+      </div>
+    </div>
+
+    <div class="insight yellow" style="margin-top:4px">
+      <strong>The universal pattern across every comeback:</strong> Cut volume → pick one flagship format → be consistent for 90 days → make the change public so your existing audience knows to re-engage.
+      Based on OKStorytime's data, the target is <strong>Sunday 60–90 min compilations, 3 videos/week max, purple studio, Sam or John only</strong>. Give it 90 days of strict adherence before evaluating.
+    </div>
+  </div>
 </div>
 
 
