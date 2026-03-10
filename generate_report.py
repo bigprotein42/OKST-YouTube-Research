@@ -1094,8 +1094,44 @@ footer {{ text-align: center; color: var(--text-muted); font-size: .75rem; paddi
       <tr class="highlight-row"><td><strong>OKStorytime (you)</strong></td><td><strong>182K</strong></td><td><strong>~22K</strong></td><td><strong>4-host live show</strong></td><td><strong>Apple Podcasts #5 Comedy, iHeart distributed</strong></td></tr>
       <tr><td>Comfort Level</td><td>176K YT</td><td>Unknown</td><td>Multi-host podcast</td><td>TikTok-first (812K followers)</td></tr>
       <tr><td>PRIVATE DIARY</td><td>750K</td><td>~30K</td><td>TTS/animated narration</td><td>Consistent aesthetic, faceless format</td></tr>
+      <tr><td>Las Damitas Histeria 🇲🇽</td><td>355K YT / 13.4M TikTok</td><td>70K–150K (episodes)</td><td>2-host comedy podcast + clip machine</td><td>Franchise model: book, live touring, Patreon + Sonoro network</td></tr>
     </table></div>
   </div>
+
+  <div class="card">
+    <div class="card-title">🌎 Las Damitas Histeria — Spanish-Language Competitor Breakdown</div>
+    <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:14px">2-host Mexican comedy podcast under Sonoro network. Founded Feb 2023. 355K YouTube subs, 50M+ views, 13.4M TikTok followers, live touring shows across Latin America and Europe. This is what a fully scaled version of OKStorytime looks like — in another language.</p>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+      <div>
+        <div style="font-size:.78rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">What They Do Differently</div>
+        <div class="insight green" style="margin-bottom:8px"><strong>Verdict format, not storytime.</strong> They don't just read stories — they render a verdict. Every episode has a clear "who's right / who's wrong" outcome the audience votes on. Viewers aren't passive — they're jury members.</div>
+        <div class="insight green" style="margin-bottom:8px"><strong>Proprietary vocabulary builds a tribe.</strong> "Damita" (their fan name), "Ramiro" (their word for any bad boyfriend), "histeriquilla/eneje" (verdict labels) — their audience adopts this language. It turns viewers into members of a club. None of your competitors have this.</div>
+        <div class="insight green" style="margin-bottom:8px"><strong>Clip machine strategy.</strong> One weekly 60-min recording session produces: 1 full episode + 4–6 standalone clips, all published across the same week. They hit 7–10 uploads/week without extra recording time.</div>
+        <div class="insight green"><strong>Audio + video simultaneously.</strong> Because it's two hosts talking at a table, the episodes work perfectly as podcasts on Spotify AND as YouTube videos. English storytime channels are almost always video-first. This doubles their distribution.</div>
+      </div>
+      <div>
+        <div style="font-size:.78rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">What You Can Steal</div>
+        <div class="insight yellow" style="margin-bottom:8px"><strong>Give your audience a verdict name.</strong> "OKStorytime Jury," "The Council," "The Verdict Squad" — something that makes fans feel like participants, not viewers. Use it consistently in titles, comments, and on-air.</div>
+        <div class="insight yellow" style="margin-bottom:8px"><strong>Name the villain archetype.</strong> "Ramiro" is genius — it's a named stand-in for every bad partner in every story. You could create your own recurring nickname for the antagonist in your stories. It creates inside-joke culture that keeps people coming back.</div>
+        <div class="insight yellow" style="margin-bottom:8px"><strong>The clip machine model.</strong> You're already recording 1–3 hour live shows. You should be extracting 4–6 standalone clip videos per episode — the most shocking moment, the funniest reaction, the best verdict, the biggest disagreement. Post them as separate videos through the week.</div>
+        <div class="insight yellow"><strong>Their full episodes hit 70K–150K regularly.</strong> They have fewer subscribers than you. The difference is intentional format structure: numbered episodes (T3 E47), clear topic labels, consistent release cadence. Viewers know exactly what they're getting.</div>
+      </div>
+    </div>
+
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px;margin-top:4px">
+      <div style="font-size:.78rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Their Engagement Numbers (Recent Episodes)</div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px">
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px 14px;font-size:.82rem"><span style="font-weight:700;color:var(--primary)">150,920</span> views — T3 E47 Fracasos en la cocina</div>
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px 14px;font-size:.82rem"><span style="font-weight:700;color:var(--primary)">138,771</span> views — viral clip from episode</div>
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px 14px;font-size:.82rem"><span style="font-weight:700;color:var(--primary)">73,467</span> views — T3 E48 Opiniones impopulares</div>
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px 14px;font-size:.82rem"><span style="font-weight:700;color:var(--primary)">70,546</span> views — T2 E1 Momentos (guest episode)</div>
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px 14px;font-size:.82rem"><span style="font-weight:700;color:var(--primary)">4.2%</span> rating rate — unusually high, signals deep loyalty</div>
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px 14px;font-size:.82rem"><span style="font-weight:700;color:var(--primary)">209K</span> views — all-time top video</div>
+      </div>
+    </div>
+  </div>
+
   <div class="card">
     <div class="card-title">💡 What Top Competitors Do That You Could Adopt</div>
     <div class="insight green"><strong>MrBallen's Easter Egg System:</strong> He hides something in every video and pins the first comment that finds it — forces full watch-throughs. You could hide a callback joke or "story of the week" answer that only makes sense if you watched the whole episode.</div>
