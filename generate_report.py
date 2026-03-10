@@ -13,6 +13,7 @@ COMPETITORS = [
     {"name": "Two Hot Takes",  "id": "UCvUW0xT38Ho7qyUmBgBZXQA"},
     {"name": "rSlash",         "id": "UC0-swBG9Ne0Vh4OuoJ2bjbA"},
     {"name": "MrBallen",       "id": "UCtPrkXdtCM5DACLufB9jbsA"},
+    {"name": "Comfort Level",  "id": "UCJ8l9Mu5FOSQ1WFFhS4mlDA"},
 ]
 
 def fetch_competitor_thumbs(days=7):
