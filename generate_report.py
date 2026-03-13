@@ -39,6 +39,40 @@ def _jpeg_is_portrait(path):
     return False
 
 
+def _looks_like_short(title):
+    """Heuristic: detect Shorts by title patterns."""
+    t = title.lower().strip()
+    # Explicit #shorts tag
+    if "#shorts" in t or "#short" in t:
+        return True
+    # Very short titles (under 30 chars) with no subreddit tag are often Shorts
+    # But don't filter titles with r/ (those are rSlash-style long-form)
+    return False
+
+
+def _jpeg_dimensions(path):
+    """Return (width, height) of a JPEG without PIL."""
+    try:
+        with open(path, "rb") as f:
+            data = f.read(65536)
+        i = 2
+        while i < len(data) - 9:
+            if data[i] != 0xFF:
+                break
+            marker = data[i+1]
+            if marker in (0xC0, 0xC1, 0xC2):
+                h = (data[i+5] << 8) | data[i+6]
+                w = (data[i+7] << 8) | data[i+8]
+                return w, h
+            if marker in (0xD8, 0xD9, 0xDA):
+                break
+            length = (data[i+2] << 8) | data[i+3]
+            i += 2 + length
+    except Exception:
+        pass
+    return 0, 0
+
+
 def _parse_iso_duration(d):
     """Convert ISO 8601 duration to seconds."""
     m = re.match(r'PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?', d or "")
@@ -60,17 +94,23 @@ def fetch_competitor_thumbs(days=7):
                 continue
             root = ET.fromstring(r.content)
             ns = {"a": "http://www.w3.org/2005/Atom",
-                  "yt": "http://www.youtube.com/xml/schemas/2015"}
+                  "yt": "http://www.youtube.com/xml/schemas/2015",
+                  "media": "http://search.yahoo.com/mrss/"}
             for entry in root.findall("a:entry", ns):
                 vid  = entry.find("yt:videoId", ns).text
                 pub  = entry.find("a:published", ns).text
                 title= entry.find("a:title", ns).text or ""
                 dt   = datetime.fromisoformat(pub)
+                # Try to get view count from media:statistics
+                vc = 0
+                stats = entry.find("media:group/media:community/media:statistics", ns)
+                if stats is not None:
+                    vc = int(stats.get("views", 0))
                 if dt >= cutoff:
                     items.append({"channel": ch["name"], "video_id": vid,
                                   "title": title, "published": dt.strftime("%b %d"),
                                   "url": f"https://youtube.com/watch?v={vid}",
-                                  "view_count": 0, "duration_seconds": 0})
+                                  "view_count": vc, "duration_seconds": 0})
         except Exception as e:
             print(f"  ✗ {ch['name']}: {e}")
 
@@ -100,7 +140,21 @@ def fetch_competitor_thumbs(days=7):
         items = [it for it in items if it["duration_seconds"] > 120]
         print(f"  Filtered {before - len(items)} Shorts; {len(items)} long-form competitor videos remain")
     else:
-        print("  Note: no API key — Shorts not filtered from competitor grid")
+        # No API key — use YouTube /shorts/ URL check to filter Shorts
+        before = len(items)
+        long_form = []
+        for it in items:
+            try:
+                r = _req.head(f"https://www.youtube.com/shorts/{it['video_id']}",
+                              allow_redirects=False, timeout=5)
+                if r.status_code == 200:  # 200 = Short, 303 redirect = long-form
+                    continue
+            except:
+                pass  # keep on error
+            long_form.append(it)
+            time.sleep(0.05)
+        items = long_form
+        print(f"  Filtered {before - len(items)} Shorts via URL check; {len(items)} long-form remain")
 
     # Download thumbnails, then remove portrait ones (Shorts)
     for item in items:
@@ -118,14 +172,21 @@ def fetch_competitor_thumbs(days=7):
                 pass
         time.sleep(0.05)
 
-    # Filter out portrait thumbnails (Shorts) — works even without API key
+    # Filter out Shorts by thumbnail dimensions and aspect ratio
     before = len(items)
     filtered = []
     for item in items:
         path = f"thumbnails/competitors/{item['video_id']}.jpg"
-        if os.path.exists(path) and _jpeg_is_portrait(path):
-            os.remove(path)  # delete so it won't reappear next run
-            continue
+        if os.path.exists(path):
+            w, h = _jpeg_dimensions(path)
+            # Portrait = definitely a Short
+            if h > w and w > 0:
+                os.remove(path)
+                continue
+            # Near-square or very small = likely a Short placeholder
+            if w > 0 and h > 0 and w / h < 1.4:
+                os.remove(path)
+                continue
         filtered.append(item)
     if before - len(filtered):
         print(f"  Removed {before - len(filtered)} portrait/Shorts thumbnails from competitor grid")
@@ -323,8 +384,10 @@ def build(videos):
     def comp_grid(items):
         if not items:
             return '<p style="color:var(--text-muted);padding:16px 0">No competitor videos found in the last 7 days. Check back after the next refresh.</p>'
+        # Sort by views descending so best performers appear first
+        sorted_items = sorted(items, key=lambda x: x.get("view_count", 0), reverse=True)
         html = '<div class="thumb-grid">'
-        for item in items:
+        for item in sorted_items:
             path = f"thumbnails/competitors/{item['video_id']}.jpg"
             b64  = img_b64(path)
             if not b64:
@@ -332,8 +395,8 @@ def build(videos):
             ch    = item["channel"]
             title = (item["title"][:45] + "…") if len(item["title"]) > 45 else item["title"]
             vc    = item.get("view_count", 0)
-            views_str = f"{vc/1_000_000:.1f}M" if vc >= 1_000_000 else (f"{vc//1000}K" if vc >= 1000 else str(vc))
-            views_html = f'<span style="font-size:.7rem;color:var(--text-muted)">{views_str} views</span>' if vc > 0 else ''
+            views_str = f"{vc/1_000_000:.1f}M" if vc >= 1_000_000 else (f"{vc//1000:,}K" if vc >= 1000 else str(vc))
+            views_html = f'<strong style="font-size:.78rem;color:var(--primary)">{views_str} views</strong>' if vc > 0 else ''
             html += f'''<div class="thumb-item">
                 <a href="{item['url']}" target="_blank">
                     <img src="data:image/jpeg;base64,{b64}" alt="{title}">
@@ -721,7 +784,7 @@ footer {{ text-align: center; color: var(--text-muted); font-size: .75rem; paddi
     <div class="insight green" style="margin-bottom:12px"><strong>Step 1 — Cut upload volume immediately</strong><br>Target: 3–5 videos/week max. April 2024 (50 videos/month) = 36,276 avg. October 2025 (184 videos/month) = 8,640 avg. Every extra video dilutes your best content's reach.</div>
     <div class="insight green" style="margin-bottom:12px"><strong>Step 2 — Make Sunday your flagship drop</strong><br>Sunday averages 46,649 views — 3.1× better than Wednesday. Best episode of the week goes live Sunday. Try a consistent time: 10am–12pm ET.</div>
     <div class="insight green" style="margin-bottom:12px"><strong>Step 3 — Rebuild around 60–90 min compilations</strong><br>Your highest-avg format (48,018 views). Use: <span class="tag g">MEGA</span><span class="tag g">weekly recap</span><span class="tag g">compilation</span><span class="tag g">truth</span><span class="tag g">reaction</span><br>Structure: 3–4 stories per episode, 15–20 min each, timestamps in description.</div>
-    <div class="insight green" style="margin-bottom:12px"><strong>Step 4 — Fix the thumbnail formula</strong><br><span class="tag g">Sam or John only</span><span class="tag g">extreme close-up</span><span class="tag g">purple/blue background</span><span class="tag g">orange clothing</span><span class="tag g">mouth open, shocked</span><br><span class="tag r">no guests</span><span class="tag r">no red background</span><span class="tag r">no profile shots</span><span class="tag r">no cluttered screenshots</span></div>
+    <div class="insight green" style="margin-bottom:12px"><strong>Step 4 — Fix the thumbnail formula</strong><br><span class="tag g">Sam or John only</span><span class="tag g">extreme close-up (face fills 80%+)</span><span class="tag g">consistent studio background</span><span class="tag g">mouth open, shocked expression</span><span class="tag g">direct eye contact with camera</span><br><span class="tag r">no guests</span><span class="tag r">no red background</span><span class="tag r">no profile/side shots</span><span class="tag r">no livestream screenshots</span></div>
     <div class="insight green" style="margin-bottom:12px"><strong>Step 5 — Lead titles with the story, not the host</strong><br><span class="tag g">Drama-first</span>: "My husband BONED his co-worker" → 1.9M views<br><span class="tag r">Host-first</span>: "Denise reacts to..." → consistently bottom 25%</div>
     <div class="insight yellow"><strong>⚡ Phase 2 — Get Sam's OAuth access for deeper data</strong><br>Unlocks: watch time per video, audience retention curves, CTR per thumbnail, revenue per video. Ask Sam to connect the channel owner Google account. This will give 10× more precise recommendations.</div>
   </div>
@@ -799,7 +862,7 @@ footer {{ text-align: center; color: var(--text-muted); font-size: .75rem; paddi
           <li><span class="icon">👤</span><div><span class="lbl">Host:</span><span class="desc">Sam or John only — no guests</span></div></li>
           <li><span class="icon">🔍</span><div><span class="lbl">Shot:</span><span class="desc">Extreme close-up — face fills 80% of frame</span></div></li>
           <li><span class="icon">🎨</span><div><span class="lbl">Background:</span><span class="desc">Purple or blue studio only</span></div></li>
-          <li><span class="icon">🟠</span><div><span class="lbl">Clothing:</span><span class="desc">Orange — your brand color</span></div></li>
+          <li><span class="icon">🎯</span><div><span class="lbl">Consistency:</span><span class="desc">Same studio setup every time — builds instant recognition</span></div></li>
           <li><span class="icon">😱</span><div><span class="lbl">Expression:</span><span class="desc">Mouth open — shocked, laughing, disbelief</span></div></li>
           <li><span class="icon">👀</span><div><span class="lbl">Eyes:</span><span class="desc">Wide open, staring directly at camera</span></div></li>
           <li><span class="icon">🔤</span><div><span class="lbl">Text:</span><span class="desc">Optional small caption at top only</span></div></li>
