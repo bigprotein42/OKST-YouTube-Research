@@ -10,10 +10,13 @@ import requests as _req
 
 # ── Competitor channels (Reddit story niche) ──────────────────────
 COMPETITORS = [
-    {"name": "Two Hot Takes",  "id": "UCvUW0xT38Ho7qyUmBgBZXQA"},
-    {"name": "rSlash",         "id": "UC0-swBG9Ne0Vh4OuoJ2bjbA"},
-    {"name": "MrBallen",       "id": "UCtPrkXdtCM5DACLufB9jbsA"},
-    {"name": "Comfort Level",  "id": "UCJ8l9Mu5FOSQ1WFFhS4mlDA"},
+    {"name": "Two Hot Takes",     "id": "UCvUW0xT38Ho7qyUmBgBZXQA"},
+    {"name": "rSlash",            "id": "UC0-swBG9Ne0Vh4OuoJ2bjbA"},
+    {"name": "MrBallen",          "id": "UCtPrkXdtCM5DACLufB9jbsA"},
+    {"name": "Comfort Level",     "id": "UCJ8l9Mu5FOSQ1WFFhS4mlDA"},
+    {"name": "Charlotte Dobre",   "id": "UCwc_RHwAPPaEh-jtwClpVrg"},
+    {"name": "Am I the Jerk",     "id": "UCZKLuU6t7CaB_RD-bD4qdWw"},
+    {"name": "Mark Narrations",   "id": "UCcmyNcmduQbuDrHxpL_3ojw"},
 ]
 
 def _jpeg_is_portrait(path):
@@ -81,11 +84,44 @@ def _parse_iso_duration(d):
     return int(m.group(1) or 0)*3600 + int(m.group(2) or 0)*60 + int(m.group(3) or 0)
 
 
-def fetch_competitor_thumbs(days=7):
-    """Pull long-form-only thumbnails from competitor RSS feeds."""
+COMP_HISTORY_CSV = "competitor_history.csv"
+
+
+def _load_comp_history():
+    """Load cumulative competitor video history from CSV."""
+    history = {}
+    if os.path.exists(COMP_HISTORY_CSV):
+        with open(COMP_HISTORY_CSV, newline="", encoding="utf-8") as f:
+            for row in csv.DictReader(f):
+                row["view_count"] = int(row.get("view_count", 0))
+                row["duration_seconds"] = int(row.get("duration_seconds", 0))
+                history[row["video_id"]] = row
+    return history
+
+
+def _save_comp_history(history):
+    """Save competitor history to CSV."""
+    if not history:
+        return
+    fields = ["channel", "video_id", "title", "published_date", "published",
+              "url", "view_count", "duration_seconds"]
+    with open(COMP_HISTORY_CSV, "w", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=fields, extrasaction="ignore")
+        w.writeheader()
+        for row in sorted(history.values(), key=lambda x: x.get("published_date", ""), reverse=True):
+            w.writerow(row)
+
+
+def fetch_competitor_thumbs():
+    """Pull long-form-only thumbnails from competitor RSS feeds, with cumulative history."""
     os.makedirs("thumbnails/competitors", exist_ok=True)
-    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
-    items = []
+
+    # Load existing history
+    history = _load_comp_history()
+    existing_ids = set(history.keys())
+
+    # Fetch ALL videos from RSS (no date cutoff — RSS gives ~15 per channel)
+    new_items = []
     for ch in COMPETITORS:
         try:
             rss = f"https://www.youtube.com/feeds/videos.xml?channel_id={ch['id']}"
@@ -101,63 +137,74 @@ def fetch_competitor_thumbs(days=7):
                 pub  = entry.find("a:published", ns).text
                 title= entry.find("a:title", ns).text or ""
                 dt   = datetime.fromisoformat(pub)
-                # Try to get view count from media:statistics
                 vc = 0
                 stats = entry.find("media:group/media:community/media:statistics", ns)
                 if stats is not None:
                     vc = int(stats.get("views", 0))
-                if dt >= cutoff:
-                    items.append({"channel": ch["name"], "video_id": vid,
-                                  "title": title, "published": dt.strftime("%b %d"),
-                                  "url": f"https://youtube.com/watch?v={vid}",
-                                  "view_count": vc, "duration_seconds": 0})
+                item = {"channel": ch["name"], "video_id": vid,
+                        "title": title, "published_date": dt.strftime("%Y-%m-%d"),
+                        "published": dt.strftime("%b %d"),
+                        "url": f"https://youtube.com/watch?v={vid}",
+                        "view_count": vc, "duration_seconds": 0}
+                # Update view counts for existing items, add new ones
+                if vid in history:
+                    history[vid]["view_count"] = vc  # refresh view count
+                else:
+                    new_items.append(item)
         except Exception as e:
             print(f"  ✗ {ch['name']}: {e}")
 
-    # Use YouTube API to get duration + view count, then filter out Shorts (<= 120s)
-    api_key = os.environ.get("YOUTUBE_API_KEY", "")
-    if api_key and items:
-        all_ids = [it["video_id"] for it in items]
-        meta = {}
-        for i in range(0, len(all_ids), 50):
-            batch = all_ids[i:i+50]
-            try:
-                r = _req.get(
-                    "https://www.googleapis.com/youtube/v3/videos",
-                    params={"part": "contentDetails,statistics", "id": ",".join(batch), "key": api_key},
-                    timeout=10
-                )
-                for v in r.json().get("items", []):
-                    meta[v["id"]] = {
-                        "duration_seconds": _parse_iso_duration(v["contentDetails"].get("duration", "")),
-                        "view_count": int(v["statistics"].get("viewCount", 0))
-                    }
-            except Exception as e:
-                print(f"  ✗ API duration fetch: {e}")
-        for it in items:
-            it.update(meta.get(it["video_id"], {}))
-        before = len(items)
-        items = [it for it in items if it["duration_seconds"] > 120]
-        print(f"  Filtered {before - len(items)} Shorts; {len(items)} long-form competitor videos remain")
-    else:
-        # No API key — use YouTube /shorts/ URL check to filter Shorts
-        before = len(items)
-        long_form = []
-        for it in items:
-            try:
-                r = _req.head(f"https://www.youtube.com/shorts/{it['video_id']}",
-                              allow_redirects=False, timeout=5)
-                if r.status_code == 200:  # 200 = Short, 303 redirect = long-form
-                    continue
-            except:
-                pass  # keep on error
-            long_form.append(it)
-            time.sleep(0.05)
-        items = long_form
-        print(f"  Filtered {before - len(items)} Shorts via URL check; {len(items)} long-form remain")
+    # Filter Shorts from NEW items only (existing ones already filtered)
+    if new_items:
+        api_key = os.environ.get("YOUTUBE_API_KEY", "")
+        if api_key:
+            all_ids = [it["video_id"] for it in new_items]
+            meta = {}
+            for i in range(0, len(all_ids), 50):
+                batch = all_ids[i:i+50]
+                try:
+                    r = _req.get(
+                        "https://www.googleapis.com/youtube/v3/videos",
+                        params={"part": "contentDetails,statistics", "id": ",".join(batch), "key": api_key},
+                        timeout=10)
+                    for v in r.json().get("items", []):
+                        meta[v["id"]] = {
+                            "duration_seconds": _parse_iso_duration(v["contentDetails"].get("duration", "")),
+                            "view_count": int(v["statistics"].get("viewCount", 0))}
+                except Exception as e:
+                    print(f"  ✗ API duration fetch: {e}")
+            for it in new_items:
+                it.update(meta.get(it["video_id"], {}))
+            before = len(new_items)
+            new_items = [it for it in new_items if it["duration_seconds"] > 120]
+            print(f"  Filtered {before - len(new_items)} Shorts via API; {len(new_items)} new long-form")
+        else:
+            before = len(new_items)
+            long_form = []
+            for it in new_items:
+                try:
+                    r = _req.head(f"https://www.youtube.com/shorts/{it['video_id']}",
+                                  allow_redirects=False, timeout=5)
+                    if r.status_code == 200:
+                        continue
+                except:
+                    pass
+                long_form.append(it)
+                time.sleep(0.05)
+            new_items = long_form
+            print(f"  Filtered {before - len(new_items)} Shorts via URL check; {len(new_items)} new long-form")
 
-    # Download thumbnails, then remove portrait ones (Shorts)
-    for item in items:
+    # Merge new items into history
+    for it in new_items:
+        history[it["video_id"]] = it
+    print(f"  {len(new_items)} new videos added to history ({len(history)} total)")
+
+    # Save updated history
+    _save_comp_history(history)
+
+    # Download thumbnails for all items in history
+    all_items = list(history.values())
+    for item in all_items:
         path = f"thumbnails/competitors/{item['video_id']}.jpg"
         if os.path.exists(path):
             continue
@@ -172,24 +219,26 @@ def fetch_competitor_thumbs(days=7):
                 pass
         time.sleep(0.05)
 
-    # Filter out Shorts by thumbnail dimensions and aspect ratio
-    before = len(items)
+    # Filter out portrait thumbnails
+    before = len(all_items)
     filtered = []
-    for item in items:
+    for item in all_items:
         path = f"thumbnails/competitors/{item['video_id']}.jpg"
         if os.path.exists(path):
             w, h = _jpeg_dimensions(path)
-            # Portrait = definitely a Short
             if h > w and w > 0:
                 os.remove(path)
+                del history[item["video_id"]]
                 continue
-            # Near-square or very small = likely a Short placeholder
             if w > 0 and h > 0 and w / h < 1.4:
                 os.remove(path)
+                del history[item["video_id"]]
                 continue
         filtered.append(item)
     if before - len(filtered):
-        print(f"  Removed {before - len(filtered)} portrait/Shorts thumbnails from competitor grid")
+        print(f"  Removed {before - len(filtered)} portrait/Shorts thumbnails")
+        _save_comp_history(history)
+
     return filtered
 
 
@@ -228,8 +277,8 @@ def fmt(n): return f"{n:,.0f}"
 def build(videos):
     # Fetch competitor thumbnails upfront
     print("Fetching competitor thumbnails from RSS feeds...")
-    comp_items = fetch_competitor_thumbs(days=7)
-    print(f"  Found {len(comp_items)} competitor videos from the last 7 days")
+    comp_items = fetch_competitor_thumbs()
+    print(f"  Found {len(comp_items)} competitor videos in history")
 
     by_views    = sorted(videos, key=lambda x: x["view_count"], reverse=True)
     total_views = sum(v["view_count"] for v in videos)
@@ -381,37 +430,26 @@ def build(videos):
         html += "</div>"
         return html
 
-    def comp_grid(items):
-        if not items:
-            return '<p style="color:var(--text-muted);padding:16px 0">No competitor videos found in the last 7 days. Check back after the next refresh.</p>'
-        # Sort by views descending so best performers appear first
-        sorted_items = sorted(items, key=lambda x: x.get("view_count", 0), reverse=True)
-        html = '<div class="thumb-grid">'
-        for item in sorted_items:
-            path = f"thumbnails/competitors/{item['video_id']}.jpg"
-            b64  = img_b64(path)
-            if not b64:
-                continue
-            ch    = item["channel"]
-            title = (item["title"][:45] + "…") if len(item["title"]) > 45 else item["title"]
-            vc    = item.get("view_count", 0)
-            views_str = f"{vc/1_000_000:.1f}M" if vc >= 1_000_000 else (f"{vc//1000:,}K" if vc >= 1000 else str(vc))
-            views_html = f'<strong style="font-size:.78rem;color:var(--primary)">{views_str} views</strong>' if vc > 0 else ''
-            html += f'''<div class="thumb-item">
-                <a href="{item['url']}" target="_blank">
-                    <img src="data:image/jpeg;base64,{b64}" alt="{title}">
-                </a>
-                <div class="thumb-label">
-                    <span class="thumb-dur">{ch}</span>
-                    {views_html}
-                    <strong style="font-size:.8rem;margin-top:3px;display:block">{title}</strong>
-                    <span style="font-size:.7rem;color:var(--text-muted)">{item['published']}</span>
-                </div>
-            </div>'''
-        html += "</div>"
-        return html
-
-    competitor_grid = comp_grid(comp_items)
+    # Build competitor thumb dict and JSON for JS filtering
+    comp_thumb_dict = {}
+    comp_json_items = []
+    for item in sorted(comp_items, key=lambda x: x.get("view_count", 0), reverse=True):
+        path = f"thumbnails/competitors/{item['video_id']}.jpg"
+        b64 = img_b64(path)
+        if not b64:
+            continue
+        comp_thumb_dict[item["video_id"]] = b64
+        comp_json_items.append({
+            "video_id": item["video_id"],
+            "channel": item["channel"],
+            "title": item.get("title", ""),
+            "published_date": item.get("published_date", ""),
+            "published": item.get("published", ""),
+            "url": item.get("url", ""),
+            "view_count": item.get("view_count", 0),
+        })
+    comp_thumb_dict_json = json.dumps(comp_thumb_dict)
+    comp_json = json.dumps(comp_json_items)
 
     top_grid = thumb_grid(top_thumb_ids, "top")
     bot_grid = thumb_grid(bot_thumb_ids, "bottom")
@@ -421,13 +459,19 @@ def build(videos):
         if any(v["publish_year"] == yr and v["duration_minutes"] >= 5 for v in videos)
     )
 
-    # JSON data for JS time-period filter (day/length tables)
+    # JSON data for JS time-period filter (day/length tables + thumbnail filter)
     video_json = json.dumps([{
         "v": v["view_count"],
         "y": v["publish_year"],
         "m": v["publish_month"],
         "d": v["publish_day_of_week"],
-        "dur": round(v["duration_minutes"], 1)
+        "dur": round(v["duration_minutes"], 1),
+        "video_id": v["video_id"],
+        "view_count": v["view_count"],
+        "duration_minutes": round(v["duration_minutes"], 1),
+        "publish_year": v["publish_year"],
+        "title": v.get("title", ""),
+        "publish_date": v.get("publish_date", ""),
     } for v in videos])
 
     # Table builders
@@ -466,7 +510,9 @@ def build(videos):
     # Pre-compute top/bottom for each format for JS
     top_longform  = [v for v in by_views  if v["duration_minutes"] >= 5][:20]
     top_shorts_vd = [v for v in by_views  if v["duration_minutes"] <  2][:20]
-    bot_longform  = sorted([v for v in videos if v["duration_minutes"] >= 5 and v["publish_year"] >= 2024],
+    bot_longform  = sorted([v for v in videos if v["duration_minutes"] >= 5 and v["publish_year"] >= 2024
+                            and "🔴" not in v.get("title","") and "stream" not in v.get("title","").lower()
+                            and "live" not in v.get("title","").lower()[:20]],
                            key=lambda x: x["view_count"])[:20]
     bot_shorts_vd = sorted([v for v in videos if v["duration_minutes"] <  2 and v["publish_year"] >= 2024],
                            key=lambda x: x["view_count"])[:20]
@@ -902,9 +948,15 @@ footer {{ text-align: center; color: var(--text-muted); font-size: .75rem; paddi
   </div>
 
   <div class="card">
-    <div class="card-title">🏆 Competitor Thumbnails — Reddit Story Niche (Last 7 Days)</div>
-    <p style="font-size:.84rem;color:var(--text-muted);margin-bottom:16px">Best performing thumbnails from Two Hot Takes, rSlash, MrBallen &amp; Comfort Level this week. Study what's working for them.</p>
-    {competitor_grid}
+    <div class="card-title">🏆 Competitor Thumbnails — Reddit Story Niche</div>
+    <p style="font-size:.84rem;color:var(--text-muted);margin-bottom:12px">Long-form only (Shorts filtered out). Sorted by views. History builds daily — the longer this runs, the more data you see.</p>
+    <div id="comp-thumb-filters" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
+      <button class="filter-btn active" onclick="filterCompThumbs('week',this)">Last 7 Days</button>
+      <button class="filter-btn" onclick="filterCompThumbs('month',this)">Last 30 Days</button>
+      <button class="filter-btn" onclick="filterCompThumbs('year',this)">Last Year</button>
+      <button class="filter-btn" onclick="filterCompThumbs('all',this)">All Time</button>
+    </div>
+    <div id="comp-thumb-grid"></div>
   </div>
 
 </div>
@@ -1289,6 +1341,8 @@ function show(tab, btn) {{
 const ALL_VIDEOS   = {video_json};
 const MONTHLY_DATA = {monthly_json};
 const THUMB_DICT   = {thumb_dict_json};
+const COMP_VIDEOS  = {comp_json};
+const COMP_THUMBS  = {comp_thumb_dict_json};
 
 const DAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
 const BUCKETS = [
@@ -1505,13 +1559,18 @@ function filterThumbs(period, btn) {{
   }}).join('') + '</div>';
 }}
 
+// ── Helpers ──────────────────────────────────────────────────────
+function _esc(s) {{ return String(s).replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }}
+function _isLive(title) {{ return /🔴|\\bstream\\b|\\blive\\b|\\bvod\\b/i.test(title); }}
+
 // ── Title filter ─────────────────────────────────────────────────
 function filterTitles(period, btn) {{
   document.querySelectorAll('#title-period-filters .filter-btn').forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
 
   const now = new Date();
-  let pool = ALL_VIDEOS.filter(v => v.duration_minutes >= 5);
+  // Exclude livestreams (🔴) and shorts
+  let pool = ALL_VIDEOS.filter(v => v.duration_minutes >= 5 && !_isLive(v.title));
 
   if (period === 'last30') {{
     const cut = new Date(now - 30*86400000).toISOString().slice(0,10);
@@ -1530,7 +1589,7 @@ function filterTitles(period, btn) {{
   function titleRow(v, color) {{
     return '<a href="https://youtube.com/watch?v='+v.video_id+'" target="_blank" style="display:flex;align-items:baseline;gap:8px;padding:7px 10px;border-radius:8px;background:var(--surface2);border:1px solid var(--border);text-decoration:none;color:var(--text)">'
       + '<span style="font-size:.8rem;font-weight:700;color:'+color+';flex-shrink:0">'+fmtV(v.view_count)+'</span>'
-      + '<span style="font-size:.85rem;flex:1;line-height:1.4">'+sanitize(v.title)+'</span>'
+      + '<span style="font-size:.85rem;flex:1;line-height:1.4">'+_esc(v.title)+'</span>'
       + '<span style="font-size:.7rem;color:var(--text-muted);flex-shrink:0">'+v.publish_date+'</span>'
       + '</a>';
   }}
@@ -1575,10 +1634,52 @@ function showVideoSub(name, btn) {{
   btn.style.fontWeight = '700';
 }}
 
+// ── Competitor thumbnail filter ──────────────────────────────────
+function filterCompThumbs(period, btn) {{
+  document.querySelectorAll('#comp-thumb-filters .filter-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+
+  const now = new Date();
+  let cutoff;
+  if (period === 'week') cutoff = new Date(now - 7*24*60*60*1000);
+  else if (period === 'month') cutoff = new Date(now - 30*24*60*60*1000);
+  else if (period === 'year') cutoff = new Date(now - 365*24*60*60*1000);
+  else cutoff = new Date(0);
+
+  const pool = COMP_VIDEOS
+    .filter(v => COMP_THUMBS[v.video_id] && new Date(v.published_date) >= cutoff)
+    .sort((a,b) => b.view_count - a.view_count);
+
+  const grid = document.getElementById('comp-thumb-grid');
+  if (!grid) return;
+
+  if (pool.length === 0) {{
+    grid.innerHTML = '<p style="color:var(--text-muted);padding:12px 0">No competitor thumbnails for this period yet. History builds daily with each refresh.</p>';
+    return;
+  }}
+
+  grid.innerHTML = '<div class="thumb-grid">' + pool.map(v => {{
+    const views = v.view_count >= 1000000 ? (v.view_count/1000000).toFixed(1)+'M'
+                : v.view_count >= 1000    ? Math.round(v.view_count/1000)+'K'
+                : v.view_count;
+    const title = v.title.length > 45 ? v.title.slice(0,45)+'…' : v.title;
+    return '<div class="thumb-item">'
+      + '<a href="'+v.url+'" target="_blank">'
+      + '<img src="data:image/jpeg;base64,'+COMP_THUMBS[v.video_id]+'" alt="'+title+'" loading="lazy"></a>'
+      + '<div class="thumb-label">'
+      + '<span class="thumb-dur">'+v.channel+'</span>'
+      + '<strong style="font-size:.78rem;color:var(--primary)">'+views+' views</strong>'
+      + '<strong style="font-size:.8rem;margin-top:3px;display:block">'+title+'</strong>'
+      + '<span style="font-size:.7rem;color:var(--text-muted)">'+v.published+'</span>'
+      + '</div></div>';
+  }}).join('') + '</div>';
+}}
+
 // ── Initialize ──────────────────────────────────────────────────
 filterAnalytics('all', document.getElementById('fb-all'));
 drawChart(MONTHLY_DATA.slice(-12));
 filterThumbs('all', null);
+filterCompThumbs('week', null);
 filterTitles('all', null);
 
 // ── AI Chat ─────────────────────────────────────────────────────
