@@ -10,6 +10,7 @@ import requests as _req
 
 # ── Competitor channels (Reddit story niche) ──────────────────────
 COMPETITORS = [
+    # ── Core competitors ──
     {"name": "Two Hot Takes",     "id": "UCvUW0xT38Ho7qyUmBgBZXQA"},
     {"name": "rSlash",            "id": "UC0-swBG9Ne0Vh4OuoJ2bjbA"},
     {"name": "MrBallen",          "id": "UCtPrkXdtCM5DACLufB9jbsA"},
@@ -17,6 +18,15 @@ COMPETITORS = [
     {"name": "Charlotte Dobre",   "id": "UCwc_RHwAPPaEh-jtwClpVrg"},
     {"name": "Am I the Jerk",     "id": "UCZKLuU6t7CaB_RD-bD4qdWw"},
     {"name": "Mark Narrations",   "id": "UCcmyNcmduQbuDrHxpL_3ojw"},
+    # ── Scouted competitors ──
+    {"name": "Reddit On Wiki",    "id": "UCOzxm6gtNWnoazoSScCp3Yg"},
+    {"name": "Mr. Redder",        "id": "UCnDN_qGjDX_EfZZklyg7fqQ"},
+    {"name": "Updoot Studios",    "id": "UCEqKKebvZbAQoD3NRIn4jaQ"},
+    {"name": "Karma Stories",     "id": "UCqH-qoS5rU2pEKPtWnfCzHw"},
+    {"name": "rSpace",            "id": "UCj0VjNM-ULRLWmbgAWlV27g"},
+    {"name": "Ripe Stories",      "id": "UCR3z2WipuYNVRjnSWCBdG-A"},
+    {"name": "Reddit Tales",      "id": "UCIGfmvaA5a0D65jrEln14qA"},
+    {"name": "Lost Genre",        "id": "UC9wROd77URIUgUOtsN37pKQ"},
 ]
 
 def _jpeg_is_portrait(path):
@@ -382,15 +392,20 @@ def build(videos):
 
     # Download missing thumbnails (hqdefault = smaller ~15KB vs maxres ~60KB)
     os.makedirs("thumbnails/top", exist_ok=True)
-    for vid_id in thumb_pool_ids:
-        path = f"thumbnails/top/{vid_id}.jpg"
-        if os.path.exists(path):
+    os.makedirs("thumbnails/bottom", exist_ok=True)
+    all_thumb_ids = thumb_pool_ids | set(bot_thumb_ids)
+    for vid_id in all_thumb_ids:
+        # Try top folder first, then bottom
+        path_top = f"thumbnails/top/{vid_id}.jpg"
+        path_bot = f"thumbnails/bottom/{vid_id}.jpg"
+        if os.path.exists(path_top) or os.path.exists(path_bot):
             continue
+        dest = path_top if vid_id in thumb_pool_ids else path_bot
         for q in ["hqdefault", "mqdefault"]:
             try:
                 r = _req.get(f"https://i.ytimg.com/vi/{vid_id}/{q}.jpg", timeout=8)
                 if r.status_code == 200 and len(r.content) > 3000:
-                    with open(path, "wb") as f:
+                    with open(dest, "wb") as f:
                         f.write(r.content)
                     break
             except:
@@ -409,7 +424,7 @@ def build(videos):
     def thumb_grid(ids, folder):
         html = '<div class="thumb-grid">'
         for vid_id in ids:
-            b64 = img_b64(f"thumbnails/{folder}/{vid_id}.jpg")
+            b64 = img_b64(f"thumbnails/{folder}/{vid_id}.jpg") or img_b64(f"thumbnails/top/{vid_id}.jpg") or img_b64(f"thumbnails/bottom/{vid_id}.jpg")
             if b64:
                 v     = next((x for x in videos if x["video_id"] == vid_id), {})
                 views = fmt(v.get("view_count", 0))
@@ -834,6 +849,79 @@ footer {{ text-align: center; color: var(--text-muted); font-size: .75rem; paddi
     <div class="insight green" style="margin-bottom:12px"><strong>Step 5 — Lead titles with the story, not the host</strong><br><span class="tag g">Drama-first</span>: "My husband BONED his co-worker" → 1.9M views<br><span class="tag r">Host-first</span>: "Denise reacts to..." → consistently bottom 25%</div>
     <div class="insight yellow"><strong>⚡ Phase 2 — Get Sam's OAuth access for deeper data</strong><br>Unlocks: watch time per video, audience retention curves, CTR per thumbnail, revenue per video. Ask Sam to connect the channel owner Google account. This will give 10× more precise recommendations.</div>
   </div>
+
+  <div class="card">
+    <div class="card-title">🎯 10K in 48 Hours — The Launch Gameplan</div>
+    <p style="font-size:.83rem;color:var(--text-muted);margin:0 0 14px">Every video should be treated as a product launch with a 48-hour window. Here's the playbook to hit 10K views within 48 hours of upload.</p>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:14px">
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px">
+        <div style="font-size:.75rem;font-weight:700;color:var(--primary);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">⏰ Hour 0 — Upload</div>
+        <div style="font-size:.82rem;line-height:1.5">
+          • Upload with your <strong>best title + thumbnail</strong> — the first version matters most<br>
+          • Post at <strong>Sunday 10am–12pm ET</strong> (your best-performing window)<br>
+          • Pin a comment immediately with a hook question<br>
+          • Share to your community tab + all socials within 15 minutes<br>
+          • Reply to the first 10 comments yourself — triggers engagement signal
+        </div>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px">
+        <div style="font-size:.75rem;font-weight:700;color:var(--yellow);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">⏰ Hour 6–12 — Read the Data</div>
+        <div style="font-size:.82rem;line-height:1.5">
+          • Check impressions vs CTR in YouTube Studio<br>
+          • If CTR < 4%: <strong>swap the thumbnail</strong> — YouTube re-tests with new art<br>
+          • If CTR > 6% but views are low: title isn't hooking browse — <strong>rewrite the title</strong><br>
+          • If both are good but views still low: impressions are low — promote harder on socials<br>
+          • Post a TikTok clip driving to the full video
+        </div>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px">
+        <div style="font-size:.75rem;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">⏰ Hour 24–48 — Double Down or Pivot</div>
+        <div style="font-size:.82rem;line-height:1.5">
+          • If already at 5K+: ride the wave — post a follow-up Short with a cliffhanger from the video<br>
+          • If under 3K: <strong>swap both title AND thumbnail</strong> — treat it as a re-launch<br>
+          • Post a 2nd TikTok clip (different moment)<br>
+          • Cross-promote in the next video's intro: "If you missed yesterday's…"<br>
+          • After 48 hours, stop tweaking — algorithm has decided
+        </div>
+      </div>
+    </div>
+
+    <div class="insight green" style="margin-bottom:8px"><strong>The #1 lever you don't have yet: CTR data.</strong> Once you get the OAuth token, we can tell you EXACTLY which thumbnails are underperforming and need swapping. Right now you're guessing. With CTR data, you'll know within 2 hours if a thumbnail is working.</div>
+    <div class="insight yellow" style="margin-bottom:8px"><strong>Editing for retention:</strong> The first 30 seconds decide everything. Start mid-story (cold open), no intros, no "hey guys." Cut to the most shocking moment of the story immediately. Add text overlays for key reveals. Use jump cuts every 3–5 seconds during narration to keep visual movement. End every video with an unresolved tease for the next one.</div>
+    <div class="insight yellow"><strong>Your current editing gap:</strong> Livestream VODs have no editing — that's why they underperform. Pre-recorded episodes with cuts, zooms, and reaction inserts get 2–4x the views of raw livestream recordings. Invest editing time in your Sunday flagship, not in more uploads.</div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">📉 MEGA Episode Title Decline — What Changed</div>
+    <p style="font-size:.83rem;color:var(--text-muted);margin:0 0 12px">Your MEGA compilations averaged 102K in 2023 but dropped to 30K in 2025. The format still works — the titles stopped working.</p>
+    <div class="table-wrap"><table>
+      <tr><th>Year</th><th>Videos</th><th>Avg Views</th><th>Best Performer</th></tr>
+      <tr><td>2023</td><td>20</td><td style="color:var(--green);font-weight:700">101,944</td><td>He "did it" with BOTH HER BOYFRIENDS | Reddit MEGA — 203K</td></tr>
+      <tr><td>2024</td><td>2</td><td style="font-weight:700">88,046</td><td>3 Hours of Bridezillas destroying their own wedding — 90K</td></tr>
+      <tr><td>2025</td><td>22</td><td style="color:var(--red);font-weight:700">29,723</td><td>The most INSANE wedding stories — 92K</td></tr>
+    </table></div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px">
+      <div>
+        <div style="font-size:.75rem;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">2023 Titles That Worked (avg 102K)</div>
+        <div class="insight green" style="margin-bottom:6px;font-size:.82rem">He "did it" with BOTH HER BOYFRIENDS — <strong>203K</strong></div>
+        <div class="insight green" style="margin-bottom:6px;font-size:.82rem">My Husband BONED his Co-Worker… You Won't Believe — <strong>173K</strong></div>
+        <div class="insight green" style="margin-bottom:6px;font-size:.82rem">Blackmailing my Stepdad… With His TINDER? — <strong>160K</strong></div>
+        <p style="font-size:.8rem;color:var(--text-muted);margin-top:8px"><strong>Pattern:</strong> First-person shock statement, specific dramatic action, implies a twist</p>
+      </div>
+      <div>
+        <div style="font-size:.75rem;font-weight:700;color:var(--red);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">2025 Titles That Flopped (avg 30K)</div>
+        <div class="insight red" style="margin-bottom:6px;font-size:.82rem">Leave the animals alone! | Reddit MEGA — <strong>11K</strong></div>
+        <div class="insight red" style="margin-bottom:6px;font-size:.82rem">Friends that are as real as the Nigerian Prince… — <strong>16K</strong></div>
+        <div class="insight red" style="margin-bottom:6px;font-size:.82rem">when grandma's will causes world war III — <strong>17K</strong></div>
+        <p style="font-size:.8rem;color:var(--text-muted);margin-top:8px"><strong>Pattern:</strong> Generic category labels, no specific story hook, no first-person voice, tries to be clever instead of dramatic</p>
+      </div>
+    </div>
+
+    <div class="insight yellow" style="margin-top:12px"><strong>The fix:</strong> Stop titling MEGAs with category names ("Roommates," "Pranksters," "Families"). Start titling them with the BEST story in the compilation: "She found her husband's second family on Facebook | 3-Hour MEGA." Lead with drama, tag MEGA at the end — not the other way around.</div>
+  </div>
+
   <div class="card">
     <div class="card-title">📋 Weekly Content Schedule Template</div>
     <div class="table-wrap"><table>
