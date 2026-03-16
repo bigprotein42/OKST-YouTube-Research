@@ -303,9 +303,9 @@ def build(videos):
             day_data[day] = {"avg": sum(v["view_count"] for v in dv)/len(dv), "count": len(dv)}
     max_day = max(d["avg"] for d in day_data.values())
 
-    # Length buckets
+    # Length buckets (long-form only, 5+ min)
     buckets = [
-        ("Shorts (<2 min)", 0, 2), ("2–10 min", 2, 10), ("10–20 min", 10, 20),
+        ("5–10 min", 5, 10), ("10–20 min", 10, 20),
         ("20–40 min", 20, 40), ("40–60 min", 40, 60), ("60–90 min", 60, 90),
         ("90–120 min", 90, 120), ("120+ min", 120, 9999),
     ]
@@ -320,7 +320,7 @@ def build(videos):
     years = sorted(set(v["publish_year"] for v in videos if v["publish_year"]))
     year_data, shorts_yr, long_yr = {}, {}, {}
     shorts   = [v for v in videos if v["duration_minutes"] < 2]
-    longform = [v for v in videos if v["duration_minutes"] >= 2]
+    longform = [v for v in videos if v["duration_minutes"] >= 5]
     for yr in years:
         yv = [v for v in videos if v["publish_year"] == yr]
         year_data[yr] = {"avg": sum(v["view_count"] for v in yv)/len(yv), "count": len(yv)}
@@ -329,10 +329,10 @@ def build(videos):
         if sv: shorts_yr[yr] = sum(v["view_count"] for v in sv)/len(sv)
         if lv: long_yr[yr]   = sum(v["view_count"] for v in lv)/len(lv)
 
-    # Monthly data — ALL years for chart
+    # Monthly data — ALL years for chart (long-form 5+ min only)
     all_monthly = {}
     for v in videos:
-        if v["publish_year"] >= 2022:
+        if v["publish_year"] >= 2022 and v["duration_minutes"] >= 5:
             k = f"{v['publish_year']}-{v['publish_month']:02d}"
             all_monthly.setdefault(k, []).append(v["view_count"])
     monthly_chart_data = [
@@ -341,24 +341,163 @@ def build(videos):
     ]
     monthly_json = json.dumps(monthly_chart_data)
 
-    # Monthly for legacy table (2023+)
+    # Monthly for legacy table (2023+, long-form 5+ min only)
     monthly = {}
     for v in videos:
-        if v["publish_year"] >= 2023:
+        if v["publish_year"] >= 2023 and v["duration_minutes"] >= 5:
             k = f"{v['publish_year']}-{v['publish_month']:02d}"
             monthly.setdefault(k, []).append(v["view_count"])
     monthly_avgs = {k: sum(v)/len(v) for k, v in monthly.items()}
     max_mo = max(monthly_avgs.values())
 
-    # Keywords
-    top_q  = by_views[:len(videos)//4]
-    bot_q  = by_views[-(len(videos)//4):]
+    # ── Per-type monthly data (for Decline Timeline tabs) ────────
+    def _is_live(v):
+        t = v.get("title", "")
+        return "🔴" in t or bool(re.search(r'\bstream\b|\blive\b|\bvod\b', t, re.IGNORECASE))
+
+    longform_vids = [v for v in videos if v["duration_minutes"] >= 5 and not _is_live(v)]
+    shorts_vids   = [v for v in videos if v["duration_minutes"] < 2]
+    live_vids     = [v for v in videos if _is_live(v)]
+
+    def _monthly_avgs_for(vlist):
+        mo = {}
+        for v in vlist:
+            if v["publish_year"] >= 2022:
+                k = f"{v['publish_year']}-{v['publish_month']:02d}"
+                mo.setdefault(k, []).append(v["view_count"])
+        return {k: sum(vals)/len(vals) for k, vals in sorted(mo.items())}
+
+    monthly_longform = _monthly_avgs_for(longform_vids)
+    monthly_shorts   = _monthly_avgs_for(shorts_vids)
+    monthly_live     = _monthly_avgs_for(live_vids)
+
+    def _quick_stats_for(vlist, label):
+        """Compute quick stats for a video subset."""
+        if not vlist:
+            return []
+        total = sum(v["view_count"] for v in vlist)
+        avg = total / len(vlist)
+        best_vid = max(vlist, key=lambda v: v["view_count"])
+        best_views = best_vid["view_count"]
+        best_str = f"{best_views/1_000_000:.1f}M" if best_views >= 1_000_000 else f"{best_views:,}"
+
+        # Best/worst posting day
+        day_avgs = {}
+        for d in ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"]:
+            dv = [v for v in vlist if v["publish_day_of_week"] == d]
+            if dv:
+                day_avgs[d] = sum(v["view_count"] for v in dv)/len(dv)
+        best_day = max(day_avgs, key=day_avgs.get) if day_avgs else "N/A"
+        worst_day = min(day_avgs, key=day_avgs.get) if day_avgs else "N/A"
+
+        # Year trends
+        year_avgs = {}
+        for v in vlist:
+            year_avgs.setdefault(v["publish_year"], []).append(v["view_count"])
+        year_avgs = {yr: sum(vs)/len(vs) for yr, vs in year_avgs.items()}
+        peak_year = max(year_avgs, key=year_avgs.get) if year_avgs else "N/A"
+        latest_year = max(year_avgs.keys()) if year_avgs else "N/A"
+
+        rows = [
+            ("Best single video", f'{best_str} views', ""),
+            (f"Total {label} videos", f'{len(vlist):,}', ""),
+            ("Overall avg views", f'{avg:,.0f}', ""),
+        ]
+        if day_avgs:
+            rows.append(("Best posting day", f'{best_day} ({day_avgs[best_day]:,.0f} avg)', "green"))
+            rows.append(("Worst posting day", f'{worst_day} ({day_avgs[worst_day]:,.0f} avg)', "red"))
+        if peak_year != "N/A":
+            rows.append((f"Peak year ({peak_year})", f'{year_avgs[peak_year]:,.0f} avg views', "green"))
+        if latest_year != "N/A" and latest_year != peak_year:
+            rows.append((f"Current ({latest_year})", f'{year_avgs[latest_year]:,.0f} avg views',
+                         "red" if year_avgs.get(latest_year, 0) < year_avgs.get(peak_year, 0) else "green"))
+        return rows
+
+    stats_longform = _quick_stats_for(longform_vids, "long-form")
+    stats_shorts   = _quick_stats_for(shorts_vids, "shorts")
+    stats_live     = _quick_stats_for(live_vids, "live")
+
+    def _decline_table_html(mo_avgs):
+        """Build decline timeline table rows from monthly averages dict."""
+        if not mo_avgs:
+            return '<tr><td colspan="3" style="color:var(--text-muted)">No data</td></tr>'
+        # Pick key inflection points: peak, first big drop, recovery, current low, latest
+        items = sorted(mo_avgs.items())
+        if not items:
+            return '<tr><td colspan="3" style="color:var(--text-muted)">No data</td></tr>'
+        peak_k = max(items, key=lambda x: x[1])
+        trough_k = min(items, key=lambda x: x[1])
+        latest_k = items[-1]
+        # Show up to 8 key months: peak, trough, latest, plus a few others
+        key_months = set()
+        key_months.add(items[0][0])   # first month
+        key_months.add(peak_k[0])     # peak
+        key_months.add(trough_k[0])   # trough
+        key_months.add(latest_k[0])   # latest
+        # Add a few evenly spaced ones
+        step = max(1, len(items) // 5)
+        for i in range(0, len(items), step):
+            key_months.add(items[i][0])
+        # Build rows sorted chronologically
+        rows = ""
+        for k, avg in items:
+            if k not in key_months:
+                continue
+            # Color coding
+            if avg == peak_k[1]:
+                cls = "green"
+                note = "Peak"
+            elif avg == trough_k[1]:
+                cls = "red"
+                note = "Lowest"
+            elif avg >= peak_k[1] * 0.7:
+                cls = "green"
+                note = ""
+            elif avg <= peak_k[1] * 0.3:
+                cls = "red"
+                note = ""
+            else:
+                cls = ""
+                note = ""
+            # Format month label
+            try:
+                dt = datetime.strptime(k, "%Y-%m")
+                label = dt.strftime("%b %Y")
+            except Exception:
+                label = k
+            count_for_month = len([v for v in videos if f"{v['publish_year']}-{v['publish_month']:02d}" == k])
+            note_str = f" — {note}" if note else ""
+            rows += f'<tr><td>{label}</td><td class="num {cls}">{avg:,.0f}</td><td class="muted">{count_for_month} videos{note_str}</td></tr>'
+        return rows
+
+    def _stats_table_html(stats_rows):
+        """Build quick stats table rows."""
+        if not stats_rows:
+            return '<tr><td colspan="2" style="color:var(--text-muted)">No data</td></tr>'
+        rows = ""
+        for metric, value, color in stats_rows:
+            cls = f' class="num {color}"' if color else ' class="num"'
+            rows += f'<tr><td>{metric}</td><td{cls}>{value}</td></tr>'
+        return rows
+
+    decline_html_longform = _decline_table_html(monthly_longform)
+    decline_html_shorts   = _decline_table_html(monthly_shorts)
+    decline_html_live     = _decline_table_html(monthly_live)
+
+    stats_html_longform = _stats_table_html(stats_longform)
+    stats_html_shorts   = _stats_table_html(stats_shorts)
+    stats_html_live     = _stats_table_html(stats_live)
+
+    # Keywords — long-form only (5+ min, no livestreams)
+    lf_by_views = [v for v in by_views if v["duration_minutes"] >= 5 and not _is_live(v)]
+    top_q  = lf_by_views[:len(lf_by_views)//4]
+    bot_q  = lf_by_views[-(len(lf_by_views)//4):]
     tw, bw = word_freq(top_q), word_freq(bot_q)
     top_kw = sorted([(w, c/max(bw.get(w,.5),.5)) for w,c in tw.items() if c>=5], key=lambda x:-x[1])[:10]
     bot_kw = sorted([(w, c/max(tw.get(w,.5),.5)) for w,c in bw.items() if c>=5], key=lambda x:-x[1])[:10]
 
-    # Recent low performers
-    recent = sorted([v for v in videos if v["publish_year"] >= 2024], key=lambda x: x["view_count"])
+    # Recent low performers (long-form 5+ min only)
+    recent = sorted([v for v in videos if v["publish_year"] >= 2024 and v["duration_minutes"] >= 5], key=lambda x: x["view_count"])
 
     # ── Shorts data ──────────────────────────────────────────────
     shorts_all       = [v for v in videos if v["duration_minutes"] < 2]
@@ -465,6 +604,225 @@ def build(videos):
         })
     comp_thumb_dict_json = json.dumps(comp_thumb_dict)
     comp_json = json.dumps(comp_json_items)
+
+    # ── Weekly Launch Tracker data ──────────────────────────────
+    now_dt = datetime.now(timezone.utc)
+    GOAL_VIEWS = 10_000
+    GOAL_HOURS = 48
+
+    # Videos from last 7 days, last 14 days, last 30 days
+    def _parse_date(d):
+        try:
+            return datetime.strptime(d, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+        except Exception:
+            return None
+
+    recent_7d  = []
+    recent_14d = []
+    recent_30d = []
+    for v in videos:
+        # Launch tracker: long-form only (5+ min)
+        if v["duration_minutes"] < 5:
+            continue
+        pub = _parse_date(v.get("publish_date", ""))
+        if not pub:
+            continue
+        age = now_dt - pub
+        v["_age_hours"] = age.total_seconds() / 3600
+        v["_age_days"]  = age.days
+        if age.days <= 7:
+            recent_7d.append(v)
+        if age.days <= 14:
+            recent_14d.append(v)
+        if age.days <= 30:
+            recent_30d.append(v)
+
+    recent_7d.sort(key=lambda x: x.get("publish_date", ""), reverse=True)
+    recent_14d.sort(key=lambda x: x.get("publish_date", ""), reverse=True)
+    recent_30d.sort(key=lambda x: x.get("publish_date", ""), reverse=True)
+
+    # Goal tracking: how many hit 10K in 48hr window?
+    # For videos older than 48hr, we can check if they hit 10K (current views)
+    # For newer videos, show progress toward goal
+    def _tracker_card(v):
+        views = v["view_count"]
+        title = v.get("title", "")[:65]
+        vid_id = v.get("video_id", "")
+        age_h = v.get("_age_hours", 999)
+        age_d = v.get("_age_days", 999)
+        dur = v.get("duration_minutes", 0)
+        is_live = "🔴" in v.get("title", "") or bool(re.search(r'\\bstream\\b|\\blive\\b', v.get("title", ""), re.IGNORECASE))
+        is_short = dur < 2
+
+        # Progress toward 10K
+        pct = min(100, (views / GOAL_VIEWS) * 100)
+        bar_color = "var(--green)" if pct >= 100 else ("var(--yellow)" if pct >= 50 else "var(--red)")
+
+        # Status
+        if age_h <= 48:
+            hrs_left = max(0, 48 - age_h)
+            status = f'<span style="color:var(--yellow);font-weight:700">⏳ {hrs_left:.0f}h left in launch window</span>'
+        elif views >= GOAL_VIEWS:
+            status = '<span style="color:var(--green);font-weight:700">✅ Hit 10K goal!</span>'
+        else:
+            status = f'<span style="color:var(--red);font-weight:700">❌ Missed — {views:,} at 48h</span>'
+
+        # Action items based on data
+        actions = []
+        if age_h <= 6:
+            actions = ["Share to community tab + all socials NOW", "Pin a hook question as first comment", "Reply to first 10 comments"]
+        elif age_h <= 12:
+            if pct < 25:
+                actions = ["⚠ SWAP THUMBNAIL immediately", "Rewrite title — lead with drama", "Post TikTok clip driving to video"]
+            elif pct < 50:
+                actions = ["Consider thumbnail swap", "Push harder on socials", "Post a TikTok clip"]
+            else:
+                actions = ["Looking good — keep engaging comments", "Post a TikTok clip to boost"]
+        elif age_h <= 48:
+            if pct < 50:
+                actions = ["🚨 SWAP BOTH title AND thumbnail — treat as re-launch", "Post 2nd TikTok clip (different moment)", "Cross-promote in next video intro"]
+            elif pct < 100:
+                actions = ["Post a follow-up Short with cliffhanger", "Cross-promote in next video"]
+            else:
+                actions = ["🎉 Riding the wave! Post a follow-up Short", "Cross-promote in next video"]
+        else:
+            if pct < 50:
+                actions = ["Review: was the title drama-first?", "Was there a double-twist cold open?", "Check thumbnail — face fills 80%?"]
+
+        actions_html = "".join(f'<div style="font-size:.78rem;padding:3px 0;color:var(--text-muted)">• {a}</div>' for a in actions)
+
+        # Type badge
+        if is_short:
+            type_badge = '<span style="background:var(--primary);color:white;padding:2px 8px;border-radius:4px;font-size:.7rem;font-weight:700">SHORT</span>'
+        elif is_live:
+            type_badge = '<span style="background:var(--red);color:white;padding:2px 8px;border-radius:4px;font-size:.7rem;font-weight:700">LIVE</span>'
+        else:
+            type_badge = f'<span style="background:var(--green);color:white;padding:2px 8px;border-radius:4px;font-size:.7rem;font-weight:700">{dur:.0f}min</span>'
+
+        # Views velocity
+        if age_h > 0:
+            v_per_hr = views / age_h
+            v_per_day = v_per_hr * 24
+            velocity_str = f'{v_per_day:,.0f}/day'
+        else:
+            velocity_str = "Just uploaded"
+
+        thumb_b64 = img_b64(f"thumbnails/top/{vid_id}.jpg") or img_b64(f"thumbnails/bottom/{vid_id}.jpg")
+        thumb_html = f'<img src="data:image/jpeg;base64,{thumb_b64}" style="width:140px;border-radius:8px;flex-shrink:0">' if thumb_b64 else ""
+
+        return f'''<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:10px">
+          <div style="display:flex;gap:14px;align-items:flex-start">
+            {thumb_html}
+            <div style="flex:1;min-width:0">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+                {type_badge}
+                <a href="https://youtube.com/watch?v={vid_id}" target="_blank" style="font-weight:700;font-size:.88rem;color:var(--text);text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{title}</a>
+              </div>
+              <div style="display:flex;gap:16px;font-size:.82rem;margin-bottom:8px">
+                <span><strong>{views:,}</strong> views</span>
+                <span style="color:var(--text-muted)">{velocity_str}</span>
+                <span style="color:var(--text-muted)">{v.get("publish_date","")}</span>
+                <span style="color:var(--text-muted)">{v.get("publish_day_of_week","")}</span>
+              </div>
+              <div style="background:var(--surface2);border-radius:6px;height:10px;overflow:hidden;margin-bottom:6px">
+                <div style="background:{bar_color};height:100%;width:{pct:.0f}%;border-radius:6px;transition:width .3s"></div>
+              </div>
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                <span style="font-size:.78rem;font-weight:600">{pct:.0f}% to 10K goal</span>
+                {status}
+              </div>
+              {actions_html}
+            </div>
+          </div>
+        </div>'''
+
+    # Build tracker cards
+    tracker_7d_html  = "".join(_tracker_card(v) for v in recent_7d)  if recent_7d  else '<p style="color:var(--text-muted)">No videos in the last 7 days.</p>'
+    tracker_14d_html = "".join(_tracker_card(v) for v in recent_14d) if recent_14d else '<p style="color:var(--text-muted)">No videos in the last 14 days.</p>'
+    tracker_30d_html = "".join(_tracker_card(v) for v in recent_30d) if recent_30d else '<p style="color:var(--text-muted)">No videos in the last 30 days.</p>'
+
+    # Goal summary stats
+    def _goal_summary(vlist):
+        if not vlist:
+            return {"total": 0, "hit": 0, "missed": 0, "in_window": 0, "avg_views": 0, "best": None}
+        hit = len([v for v in vlist if v["view_count"] >= GOAL_VIEWS])
+        in_window = len([v for v in vlist if v.get("_age_hours", 999) <= 48])
+        missed = len(vlist) - hit - in_window
+        avg = sum(v["view_count"] for v in vlist) / len(vlist)
+        best = max(vlist, key=lambda v: v["view_count"])
+        return {"total": len(vlist), "hit": hit, "missed": missed, "in_window": in_window, "avg_views": avg, "best": best}
+
+    goal_7d  = _goal_summary(recent_7d)
+    goal_30d = _goal_summary(recent_30d)
+
+    # ── Load transcript analysis if available ───────────────────
+    transcript_deep_html = ""
+    ta_path = "transcript_analysis.json"
+    if os.path.exists(ta_path):
+        try:
+            with open(ta_path, "r", encoding="utf-8") as f:
+                ta = json.load(f)
+            analysis = ta.get("analysis", {})
+
+            # Build comparison tables
+            def _ta_video_rows(vlist, limit=20):
+                rows = ""
+                for v in vlist[:limit]:
+                    views = v.get("views", 0)
+                    vstr = f"{views/1_000_000:.1f}M" if views >= 1_000_000 else f"{views:,}"
+                    style = v.get("opening_style", "unknown")
+                    host = v.get("detected_host", "Unknown")
+                    topics = ", ".join(v.get("topics", [])[:3])
+                    plug = "Yes" if v.get("has_channel_plug_in_first_60s") else "No"
+                    first30 = (v.get("first_30s", "") or "")[:120]
+                    title = (v.get("title", "") or "")[:60]
+                    rows += f'<tr><td style="font-size:.78rem;max-width:250px"><a href="https://youtube.com/watch?v={v.get("video_id","")}" target="_blank">{title}</a></td>'
+                    rows += f'<td class="num">{vstr}</td><td>{style}</td><td>{host}</td><td style="font-size:.75rem">{topics}</td><td>{plug}</td></tr>'
+                return rows
+
+            top_rows = _ta_video_rows(ta.get("top_50", []))
+            bot_rows = _ta_video_rows(ta.get("bottom_50", []))
+
+            # Key findings
+            findings_html = ""
+            for key, label in [("opening_patterns", "Opening Patterns"), ("host_correlation", "Host Correlation"),
+                               ("topic_correlation", "Topic Correlation"), ("pacing_differences", "Pacing"),
+                               ("title_patterns", "Title Patterns")]:
+                val = analysis.get(key, "")
+                if isinstance(val, dict):
+                    val = f"<strong>Top:</strong> {val.get('top', 'N/A')}<br><strong>Bottom:</strong> {val.get('bottom', 'N/A')}"
+                if val:
+                    findings_html += f'<div class="insight green" style="margin-bottom:8px"><strong>{label}:</strong> {val}</div>'
+
+            recs = analysis.get("key_recommendations", [])
+            recs_html = ""
+            for i, rec in enumerate(recs, 1):
+                recs_html += f'<div class="insight yellow" style="margin-bottom:6px"><strong>Recommendation {i}:</strong> {rec}</div>'
+
+            transcript_deep_html = f"""
+      <div style="display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:12px">
+        <button class="ta-tab-btn active" onclick="showTATab('findings',this)" style="padding:7px 16px;border:none;background:none;font-weight:700;font-size:.85rem;cursor:pointer;border-bottom:2px solid var(--primary);color:var(--primary);font-family:inherit;margin-bottom:-2px">Key Findings</button>
+        <button class="ta-tab-btn" onclick="showTATab('top',this)" style="padding:7px 16px;border:none;background:none;font-weight:600;font-size:.85rem;cursor:pointer;border-bottom:2px solid transparent;color:var(--text-muted);font-family:inherit;margin-bottom:-2px">Top 50 Videos</button>
+        <button class="ta-tab-btn" onclick="showTATab('bottom',this)" style="padding:7px 16px;border:none;background:none;font-weight:600;font-size:.85rem;cursor:pointer;border-bottom:2px solid transparent;color:var(--text-muted);font-family:inherit;margin-bottom:-2px">Bottom 50 Videos</button>
+      </div>
+      <div id="ta-findings" class="ta-panel">
+        {findings_html}
+        <div style="margin-top:14px"><div style="font-size:.8rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--primary);margin-bottom:8px">Actionable Recommendations</div>{recs_html}</div>
+      </div>
+      <div id="ta-top" class="ta-panel" style="display:none">
+        <div class="table-wrap"><table style="font-size:.82rem">
+          <tr><th>Title</th><th>Views</th><th>Opening</th><th>Host</th><th>Topics</th><th>Plug &lt;60s</th></tr>
+          {top_rows}
+        </table></div>
+      </div>
+      <div id="ta-bottom" class="ta-panel" style="display:none">
+        <div class="table-wrap"><table style="font-size:.82rem">
+          <tr><th>Title</th><th>Views</th><th>Opening</th><th>Host</th><th>Topics</th><th>Plug &lt;60s</th></tr>
+          {bot_rows}
+        </table></div>
+      </div>"""
+        except Exception as e:
+            print(f"  Warning: Could not load transcript analysis: {e}")
 
     top_grid = thumb_grid(top_thumb_ids, "top")
     bot_grid = thumb_grid(bot_thumb_ids, "bottom")
@@ -781,6 +1139,7 @@ footer {{ text-align: center; color: var(--text-muted); font-size: .75rem; paddi
   <button class="nav-btn" onclick="show('videos',this)">🎬 Videos</button>
   <button class="nav-btn" onclick="show('competitors',this)">🏆 Competitors</button>
   <button class="nav-btn" onclick="show('shorts',this)">⚡ Shorts Strategy</button>
+  <button class="nav-btn" onclick="show('tracker',this)">🚀 Launch Tracker</button>
 </nav>
 
 
@@ -791,16 +1150,16 @@ footer {{ text-align: center; color: var(--text-muted); font-size: .75rem; paddi
     <div class="two-col" style="margin-top:14px;gap:14px">
       <div>
         <div style="font-size:.7rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--red);margin-bottom:8px">⚠ Problems</div>
-        <div class="insight red">❌ <strong>Your Shorts collapsed 92%.</strong> They averaged 60,453 views in 2023. Now they average 4,784 in 2025. Yet you made 547 Shorts in 2025 — your highest Short volume ever.</div>
-        <div class="insight red">❌ <strong>Volume is killing quality reach.</strong> October 2025: 184 videos uploaded → 8,640 avg views. April 2024: 50 videos → 36,276 avg views. Fewer videos = more views per video.</div>
+        <div class="insight red">❌ <strong>Long-form volume is diluting reach.</strong> Fewer, higher-quality long-form uploads = more views per video. Focus on 3–5 long-form videos/week max.</div>
+        <div class="insight red">❌ <strong>Inconsistent thumbnails &amp; titles.</strong> Red studio backdrop, guest faces, and host-first titles are confusing new viewers and lowering CTR.</div>
         <div class="insight red">❌ <strong>New red studio isn't recognized.</strong> Viewers built a strong association with purple/blue + orange. The red backdrop looks like a different channel.</div>
         <div class="insight red">❌ <strong>Guest thumbnails don't convert.</strong> New viewers don't know your guests. Every guest thumbnail tested below average.</div>
       </div>
       <div>
         <div style="font-size:.7rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--green);margin-bottom:8px">✓ Wins</div>
-        <div class="insight green">✅ <strong>Long-form is still working.</strong> Long-form averaged 39,629 views in 2024 — nearly 10× Shorts that same year.</div>
+        <div class="insight green">✅ <strong>Long-form is still working.</strong> Long-form averaged 39,629 views in 2024. The format has proven, loyal audience demand.</div>
         <div class="insight green">✅ <strong>Sunday is your superpower.</strong> Sunday averages 46,649 views vs 15,035 on Wednesday — 3.1× difference purely from posting day.</div>
-        <div class="insight green">✅ <strong>60–90 min compilations are your #1 format.</strong> 48,018 avg views — more than double Shorts, 10× better than 2–10 min clips.</div>
+        <div class="insight green">✅ <strong>60–90 min compilations are your #1 format.</strong> 48,018 avg views — your highest-performing length bracket by far.</div>
         <div class="insight green">✅ <strong>Your podcast is thriving.</strong> Apple Podcasts #5 Comedy in the US. That audience can convert to YouTube viewers.</div>
       </div>
     </div>
@@ -808,31 +1167,55 @@ footer {{ text-align: center; color: var(--text-muted); font-size: .75rem; paddi
   <div class="two-col">
     <div class="card">
       <div class="card-title">📉 The Decline Timeline</div>
-      <div class="table-wrap"><table>
-        <tr><th>Period</th><th>Avg Views</th><th>What Happened</th></tr>
-        <tr><td>May 2023</td><td class="num green">155,619</td><td>Peak — viral Shorts era</td></tr>
-        <tr><td>Jun 2023</td><td class="num" style="color:var(--yellow)">26,881</td><td>First cliff drop</td></tr>
-        <tr><td>Apr 2024</td><td class="num green">36,276</td><td>Long-form recovery</td></tr>
-        <tr><td>Oct 2024</td><td class="num red">13,596</td><td>Second drop</td></tr>
-        <tr><td>Oct 2025</td><td class="num red">8,640</td><td>184 videos that month</td></tr>
-        <tr><td>Nov 2025</td><td class="num red"><strong>4,126</strong></td><td>Lowest point ever</td></tr>
-        <tr><td>Feb 2026</td><td class="num" style="color:var(--yellow)">8,177</td><td>Slight recovery</td></tr>
-      </table></div>
+      <div style="display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:12px">
+        <button class="dt-tab-btn active" onclick="showDTTab('longform',this)" style="padding:7px 16px;border:none;background:none;font-weight:700;font-size:.85rem;cursor:pointer;border-bottom:2px solid var(--primary);color:var(--primary);font-family:inherit;margin-bottom:-2px">📹 Video</button>
+        <button class="dt-tab-btn" onclick="showDTTab('shorts',this)" style="padding:7px 16px;border:none;background:none;font-weight:600;font-size:.85rem;cursor:pointer;border-bottom:2px solid transparent;color:var(--text-muted);font-family:inherit;margin-bottom:-2px">⚡ Shorts</button>
+        <button class="dt-tab-btn" onclick="showDTTab('live',this)" style="padding:7px 16px;border:none;background:none;font-weight:600;font-size:.85rem;cursor:pointer;border-bottom:2px solid transparent;color:var(--text-muted);font-family:inherit;margin-bottom:-2px">🔴 Live</button>
+      </div>
+      <div id="dt-longform" class="dt-panel">
+        <div class="table-wrap"><table>
+          <tr><th>Period</th><th>Avg Views</th><th>Details</th></tr>
+          {decline_html_longform}
+        </table></div>
+      </div>
+      <div id="dt-shorts" class="dt-panel" style="display:none">
+        <div class="table-wrap"><table>
+          <tr><th>Period</th><th>Avg Views</th><th>Details</th></tr>
+          {decline_html_shorts}
+        </table></div>
+      </div>
+      <div id="dt-live" class="dt-panel" style="display:none">
+        <div class="table-wrap"><table>
+          <tr><th>Period</th><th>Avg Views</th><th>Details</th></tr>
+          {decline_html_live}
+        </table></div>
+      </div>
     </div>
     <div class="card">
       <div class="card-title">⚡ Quick Stats</div>
-      <div class="table-wrap"><table>
-        <tr><th>Metric</th><th>Value</th></tr>
-        <tr><td>Best single video ever</td><td class="num">7.5M views</td></tr>
-        <tr><td>Best posting day</td><td class="num">Sunday (46,649 avg)</td></tr>
-        <tr><td>Worst posting day</td><td class="num">Wednesday (15,035 avg)</td></tr>
-        <tr><td>Best video length</td><td class="num">60–90 min (48,018 avg)</td></tr>
-        <tr><td>Worst video length</td><td class="num">2–10 min (4,876 avg)</td></tr>
-        <tr><td>Shorts peak (2023)</td><td class="num green">60,453 avg views</td></tr>
-        <tr><td>Shorts now (2025)</td><td class="num red">4,784 avg views</td></tr>
-        <tr><td>Long-form (2024)</td><td class="num green">39,629 avg views</td></tr>
-        <tr><td>Est. monthly ad revenue</td><td class="num">$1,730–$5,180</td></tr>
-      </table></div>
+      <div style="display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:12px">
+        <button class="qs-tab-btn active" onclick="showQSTab('longform',this)" style="padding:7px 16px;border:none;background:none;font-weight:700;font-size:.85rem;cursor:pointer;border-bottom:2px solid var(--primary);color:var(--primary);font-family:inherit;margin-bottom:-2px">📹 Video</button>
+        <button class="qs-tab-btn" onclick="showQSTab('shorts',this)" style="padding:7px 16px;border:none;background:none;font-weight:600;font-size:.85rem;cursor:pointer;border-bottom:2px solid transparent;color:var(--text-muted);font-family:inherit;margin-bottom:-2px">⚡ Shorts</button>
+        <button class="qs-tab-btn" onclick="showQSTab('live',this)" style="padding:7px 16px;border:none;background:none;font-weight:600;font-size:.85rem;cursor:pointer;border-bottom:2px solid transparent;color:var(--text-muted);font-family:inherit;margin-bottom:-2px">🔴 Live</button>
+      </div>
+      <div id="qs-longform" class="qs-panel">
+        <div class="table-wrap"><table>
+          <tr><th>Metric</th><th>Value</th></tr>
+          {stats_html_longform}
+        </table></div>
+      </div>
+      <div id="qs-shorts" class="qs-panel" style="display:none">
+        <div class="table-wrap"><table>
+          <tr><th>Metric</th><th>Value</th></tr>
+          {stats_html_shorts}
+        </table></div>
+      </div>
+      <div id="qs-live" class="qs-panel" style="display:none">
+        <div class="table-wrap"><table>
+          <tr><th>Metric</th><th>Value</th></tr>
+          {stats_html_live}
+        </table></div>
+      </div>
     </div>
   </div>
 </div>
@@ -842,7 +1225,7 @@ footer {{ text-align: center; color: var(--text-muted); font-size: .75rem; paddi
 <div id="tab-action" class="tab">
   <div class="card" style="margin-top:22px">
     <div class="card-title">🚀 5-Step Action Plan to Recover Views</div>
-    <div class="insight green" style="margin-bottom:12px"><strong>Step 1 — Cut upload volume immediately</strong><br>Target: 3–5 videos/week max. April 2024 (50 videos/month) = 36,276 avg. October 2025 (184 videos/month) = 8,640 avg. Every extra video dilutes your best content's reach.</div>
+    <div class="insight green" style="margin-bottom:12px"><strong>Step 1 — Cut long-form upload volume immediately</strong><br>Target: 3–5 long-form videos/week max. Fewer, higher-quality uploads = more views per video. Every extra upload dilutes your best content's reach. (For Shorts advice, see the ⚡ Shorts Strategy tab.)</div>
     <div class="insight green" style="margin-bottom:12px"><strong>Step 2 — Make Sunday your flagship drop</strong><br>Sunday averages 46,649 views — 3.1× better than Wednesday. Best episode of the week goes live Sunday. Try a consistent time: 10am–12pm ET.</div>
     <div class="insight green" style="margin-bottom:12px"><strong>Step 3 — Rebuild around 60–90 min compilations</strong><br>Your highest-avg format (48,018 views). Use: <span class="tag g">MEGA</span><span class="tag g">weekly recap</span><span class="tag g">compilation</span><span class="tag g">truth</span><span class="tag g">reaction</span><br>Structure: 3–4 stories per episode, 15–20 min each, timestamps in description.</div>
     <div class="insight green" style="margin-bottom:12px"><strong>Step 4 — Fix the thumbnail formula</strong><br><span class="tag g">Sam or John only</span><span class="tag g">extreme close-up (face fills 80%+)</span><span class="tag g">consistent studio background</span><span class="tag g">mouth open, shocked expression</span><span class="tag g">direct eye contact with camera</span><br><span class="tag r">no guests</span><span class="tag r">no red background</span><span class="tag r">no profile/side shots</span><span class="tag r">no livestream screenshots</span></div>
@@ -920,6 +1303,58 @@ footer {{ text-align: center; color: var(--text-muted); font-size: .75rem; paddi
     </div>
 
     <div class="insight yellow" style="margin-top:12px"><strong>The fix:</strong> Stop titling MEGAs with category names ("Roommates," "Pranksters," "Families"). Start titling them with the BEST story in the compilation: "She found her husband's second family on Facebook | 3-Hour MEGA." Lead with drama, tag MEGA at the end — not the other way around.</div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">🎬 The First 30 Seconds — Intro Formula (Transcript Analysis)</div>
+    <p style="font-size:.83rem;color:var(--text-muted);margin:0 0 14px">We analyzed transcripts of the top 10 vs median-performing long-form videos. <strong>Word count is identical</strong> (~96 words in 30s). The difference is entirely in WHAT you say, not how much.</p>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px">
+      <div style="background:var(--surface);border:2px solid var(--green);border-radius:10px;padding:16px">
+        <div style="font-size:.75rem;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">✅ Top Videos (148K–212K views) — What They Do</div>
+        <div style="font-size:.83rem;line-height:1.7">
+          <strong>1. Double-Twist Cold Open</strong> — Every single top video opens with a 1-2 sentence dramatic summary containing the conflict AND an unexpected reversal:<br>
+          <div style="background:var(--surface2);border-radius:8px;padding:10px;margin:8px 0;font-style:italic;font-size:.8rem;line-height:1.6">
+            "my husband thinks I'm ugly so he wants an open marriage — I told him the first guy I want to see and now he doesn't want one anymore" — <strong>148K</strong><br><br>
+            "she cheated on me so I had a threesome with her ex-boyfriend and the male mistress but now I think I'm in love with both of them" — <strong>202K</strong><br><br>
+            "I'm infertile so my husband boned his co-worker... they just took a paternity test and I can't believe the results" — <strong>173K</strong>
+          </div>
+          <strong>2. Under 5 seconds to story</strong> — No channel plugs, no "hey guys," no housekeeping before the hook<br>
+          <strong>3. Taboo subject first</strong> — Paternity, infidelity, financial crimes by family, infertility<br>
+          <strong>4. Host reactions: 1–5 words max</strong> — "yikes," "oh my god," "dang" — never derails momentum<br>
+          <strong>5. Channel plugs after 60 seconds</strong> — Never in the first 30 seconds
+        </div>
+      </div>
+      <div style="background:var(--surface);border:2px solid var(--red);border-radius:10px;padding:16px">
+        <div style="font-size:.75rem;font-weight:700;color:var(--red);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">❌ Median Videos (~21K views) — What They Do Wrong</div>
+        <div style="font-size:.83rem;line-height:1.7">
+          <strong>1. Single conflict, no twist</strong> — "my best friend turned out to be the worst roommate." Direct, but no "wait, WHAT?" factor<br><br>
+          <strong>2. Housekeeping in the first 10 seconds</strong> — "if you want to submit your own stories, go to r/okstorytime" — kills momentum before the hook<br><br>
+          <strong>3. Less taboo topics</strong> — Bad roommates, deadbeat dads, cult parents, wedding pranks — relatable but not shocking<br><br>
+          <strong>4. Longer host commentary up front</strong> — Extended riffing and conversational tone slows the hook<br><br>
+          <strong>5. No reversal or cliffhanger</strong> — Viewers can predict the story from the opening
+        </div>
+      </div>
+    </div>
+
+    <div style="background:linear-gradient(135deg,var(--surface) 0%,var(--surface2) 100%);border:2px solid var(--primary);border-radius:12px;padding:18px;margin-bottom:14px">
+      <div style="font-size:.9rem;font-weight:700;color:var(--primary);margin-bottom:10px">🎯 THE FORMULA — Use This for Every Video</div>
+      <div style="font-size:.95rem;line-height:1.8;font-weight:600;text-align:center;padding:8px 0">
+        "[Shocking situation] + but/so [unexpected consequence] + and now [ironic reversal]"
+      </div>
+      <div style="font-size:.82rem;color:var(--text-muted);text-align:center;margin-top:4px">All within the first sentence. Before anything else. No exceptions.</div>
+    </div>
+
+    <div class="insight green" style="margin-bottom:8px"><strong>Title Generator Rule:</strong> Take the best story's opening hook and use it as the title. If the hook has a double-twist, include BOTH twists. "My husband boned his co-worker — I can't believe the paternity test results" beats "Wild paternity test stories" every time.</div>
+    <div class="insight yellow"><strong>Team action item:</strong> Print this formula and tape it to the editing station. Before recording any video, write the cold-open sentence first. If it doesn't have a twist AND a reversal, rewrite it.</div>
+  </div>
+
+  <div class="card" id="transcript-deep-dive">
+    <div class="card-title">🔬 Deep Transcript Analysis — Top 50 vs Bottom 50</div>
+    <p style="font-size:.83rem;color:var(--text-muted);margin:0 0 12px">Full analysis of 100 video transcripts comparing what top performers do differently. Loading from latest analysis...</p>
+    <div id="transcript-analysis-content">
+      {transcript_deep_html if transcript_deep_html else '<p style="color:var(--text-muted);font-style:italic">Run deep_transcript_analysis.py to generate the full analysis. It will appear here on next report build.</p>'}
+    </div>
   </div>
 
   <div class="card">
@@ -1065,7 +1500,7 @@ footer {{ text-align: center; color: var(--text-muted); font-size: .75rem; paddi
 
   <div class="two-col">
     <div class="card">
-      <div class="card-title">📅 Avg Views by Day of Week</div>
+      <div class="card-title">📅 Avg Views by Day of Week (Long-Form)</div>
       <div class="table-wrap">
       <table id="day-table">
         <tr><th>Day</th><th>Avg Views</th><th>Videos</th><th></th></tr>
@@ -1074,7 +1509,7 @@ footer {{ text-align: center; color: var(--text-muted); font-size: .75rem; paddi
       <p id="day-note" style="font-size:.82rem;color:var(--text-muted);margin-top:10px"></p>
     </div>
     <div class="card">
-      <div class="card-title">⏱️ Avg Views by Video Length</div>
+      <div class="card-title">⏱️ Avg Views by Video Length (Long-Form)</div>
       <div class="table-wrap">
       <table id="len-table">
         <tr><th>Length</th><th>Avg Views</th><th>Videos</th><th></th></tr>
@@ -1086,7 +1521,7 @@ footer {{ text-align: center; color: var(--text-muted); font-size: .75rem; paddi
 
   <!-- Monthly Trend Chart -->
   <div class="card">
-    <div class="card-title">📆 Monthly Avg Views Trend</div>
+    <div class="card-title">📆 Monthly Avg Views Trend (Long-Form Only)</div>
     <div class="filter-bar" id="chart-filters">
       <span>Time range:</span>
       <button class="filter-btn" onclick="setChartRange(3,this)">3M</button>
@@ -1135,7 +1570,7 @@ footer {{ text-align: center; color: var(--text-muted); font-size: .75rem; paddi
         <span class="chat-chip" onclick="askChip(this)">Why did views drop in late 2025?</span>
         <span class="chat-chip" onclick="askChip(this)">What's our best month ever and why?</span>
         <span class="chat-chip" onclick="askChip(this)">Which day should we post for max views?</span>
-        <span class="chat-chip" onclick="askChip(this)">How do Shorts compare to long-form?</span>
+        <span class="chat-chip" onclick="askChip(this)">What long-form length gets the most views?</span>
         <span class="chat-chip" onclick="askChip(this)">What's our fastest path to 100K avg views?</span>
       </div>
 
@@ -1413,6 +1848,57 @@ footer {{ text-align: center; color: var(--text-muted); font-size: .75rem; paddi
   </div>
 </div>
 
+<!-- ════════ LAUNCH TRACKER ════════ -->
+<div id="tab-tracker" class="tab">
+  <div class="card" style="margin-top:22px">
+    <div class="card-title">🚀 Weekly Launch Tracker — 10K in 48 Hours</div>
+    <p style="font-size:.83rem;color:var(--text-muted);margin:0 0 16px">Track every video's progress toward the 10K/48hr goal. Action items update based on where each video is in its launch window.</p>
+
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px">
+      <div style="background:var(--surface);border:2px solid var(--border);border-radius:12px;padding:16px;text-align:center">
+        <div style="font-size:2rem;font-weight:800;color:var(--primary)">{goal_7d["total"]}</div>
+        <div style="font-size:.78rem;color:var(--text-muted);font-weight:600">Videos This Week</div>
+      </div>
+      <div style="background:var(--surface);border:2px solid var(--green);border-radius:12px;padding:16px;text-align:center">
+        <div style="font-size:2rem;font-weight:800;color:var(--green)">{goal_7d["hit"]}</div>
+        <div style="font-size:.78rem;color:var(--text-muted);font-weight:600">Hit 10K Goal</div>
+      </div>
+      <div style="background:var(--surface);border:2px solid var(--yellow);border-radius:12px;padding:16px;text-align:center">
+        <div style="font-size:2rem;font-weight:800;color:var(--yellow)">{goal_7d["in_window"]}</div>
+        <div style="font-size:.78rem;color:var(--text-muted);font-weight:600">Still in 48hr Window</div>
+      </div>
+      <div style="background:var(--surface);border:2px solid var(--red);border-radius:12px;padding:16px;text-align:center">
+        <div style="font-size:2rem;font-weight:800;color:var(--red)">{goal_7d["missed"]}</div>
+        <div style="font-size:.78rem;color:var(--text-muted);font-weight:600">Missed Goal</div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:18px">
+      <div style="background:linear-gradient(135deg,var(--surface) 0%,var(--surface2) 100%);border:1px solid var(--border);border-radius:12px;padding:16px">
+        <div style="font-size:.75rem;font-weight:700;color:var(--primary);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">7-Day Average</div>
+        <div style="font-size:1.4rem;font-weight:800">{goal_7d["avg_views"]:,.0f} views</div>
+        <div style="font-size:.78rem;color:var(--text-muted)">{goal_7d["hit"]}/{goal_7d["total"]} videos hit 10K ({(goal_7d["hit"]/max(goal_7d["total"],1)*100):.0f}%)</div>
+      </div>
+      <div style="background:linear-gradient(135deg,var(--surface) 0%,var(--surface2) 100%);border:1px solid var(--border);border-radius:12px;padding:16px">
+        <div style="font-size:.75rem;font-weight:700;color:var(--primary);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">30-Day Average</div>
+        <div style="font-size:1.4rem;font-weight:800">{goal_30d["avg_views"]:,.0f} views</div>
+        <div style="font-size:.78rem;color:var(--text-muted)">{goal_30d["hit"]}/{goal_30d["total"]} videos hit 10K ({(goal_30d["hit"]/max(goal_30d["total"],1)*100):.0f}%)</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div style="display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:14px">
+      <button class="lt-tab-btn active" onclick="showLTTab('7d',this)" style="padding:7px 16px;border:none;background:none;font-weight:700;font-size:.85rem;cursor:pointer;border-bottom:2px solid var(--primary);color:var(--primary);font-family:inherit;margin-bottom:-2px">Last 7 Days</button>
+      <button class="lt-tab-btn" onclick="showLTTab('14d',this)" style="padding:7px 16px;border:none;background:none;font-weight:600;font-size:.85rem;cursor:pointer;border-bottom:2px solid transparent;color:var(--text-muted);font-family:inherit;margin-bottom:-2px">Last 14 Days</button>
+      <button class="lt-tab-btn" onclick="showLTTab('30d',this)" style="padding:7px 16px;border:none;background:none;font-weight:600;font-size:.85rem;cursor:pointer;border-bottom:2px solid transparent;color:var(--text-muted);font-family:inherit;margin-bottom:-2px">Last 30 Days</button>
+    </div>
+    <div id="lt-7d" class="lt-panel">{tracker_7d_html}</div>
+    <div id="lt-14d" class="lt-panel" style="display:none">{tracker_14d_html}</div>
+    <div id="lt-30d" class="lt-panel" style="display:none">{tracker_30d_html}</div>
+  </div>
+</div>
+
 <footer>Generated with Claude Code &nbsp;·&nbsp; OKStorytime YouTube Growth Report &nbsp;·&nbsp; {now}</footer>
 
 <script>
@@ -1434,7 +1920,7 @@ const COMP_THUMBS  = {comp_thumb_dict_json};
 
 const DAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
 const BUCKETS = [
-  ["Shorts (<2 min)", 0, 2], ["2-10 min", 2, 10], ["10-20 min", 10, 20],
+  ["5-10 min", 5, 10], ["10-20 min", 10, 20],
   ["20-40 min", 20, 40], ["40-60 min", 40, 60], ["60-90 min", 60, 90],
   ["90-120 min", 90, 120], ["120+ min", 120, 9999]
 ];
@@ -1453,7 +1939,8 @@ function filterAnalytics(year, btn) {{
   }});
   btn.classList.add('active');
 
-  const vids = year === 'all' ? ALL_VIDEOS : ALL_VIDEOS.filter(v => v.y === parseInt(year));
+  const allLF = ALL_VIDEOS.filter(v => v.dur >= 5);
+  const vids = year === 'all' ? allLF : allLF.filter(v => v.y === parseInt(year));
 
   // Day of week table
   const dayTable = document.getElementById('day-table');
@@ -1713,6 +2200,68 @@ function showVideoSub(name, btn) {{
     if (el) el.style.display = n === name ? '' : 'none';
   }});
   document.querySelectorAll('.sub-tab-btn').forEach(b => {{
+    b.style.borderBottomColor = 'transparent';
+    b.style.color = 'var(--text-muted)';
+    b.style.fontWeight = '600';
+  }});
+  btn.style.borderBottomColor = 'var(--primary)';
+  btn.style.color = 'var(--primary)';
+  btn.style.fontWeight = '700';
+}}
+
+// ── Decline Timeline & Quick Stats tab switching ────────────────
+function showDTTab(name, btn) {{
+  ['longform','shorts','live'].forEach(n => {{
+    const el = document.getElementById('dt-'+n);
+    if (el) el.style.display = n === name ? '' : 'none';
+  }});
+  document.querySelectorAll('.dt-tab-btn').forEach(b => {{
+    b.style.borderBottomColor = 'transparent';
+    b.style.color = 'var(--text-muted)';
+    b.style.fontWeight = '600';
+  }});
+  btn.style.borderBottomColor = 'var(--primary)';
+  btn.style.color = 'var(--primary)';
+  btn.style.fontWeight = '700';
+}}
+function showQSTab(name, btn) {{
+  ['longform','shorts','live'].forEach(n => {{
+    const el = document.getElementById('qs-'+n);
+    if (el) el.style.display = n === name ? '' : 'none';
+  }});
+  document.querySelectorAll('.qs-tab-btn').forEach(b => {{
+    b.style.borderBottomColor = 'transparent';
+    b.style.color = 'var(--text-muted)';
+    b.style.fontWeight = '600';
+  }});
+  btn.style.borderBottomColor = 'var(--primary)';
+  btn.style.color = 'var(--primary)';
+  btn.style.fontWeight = '700';
+}}
+
+// ── Launch Tracker tabs ─────────────────────────────────────────
+function showLTTab(name, btn) {{
+  ['7d','14d','30d'].forEach(n => {{
+    const el = document.getElementById('lt-'+n);
+    if (el) el.style.display = n === name ? '' : 'none';
+  }});
+  document.querySelectorAll('.lt-tab-btn').forEach(b => {{
+    b.style.borderBottomColor = 'transparent';
+    b.style.color = 'var(--text-muted)';
+    b.style.fontWeight = '600';
+  }});
+  btn.style.borderBottomColor = 'var(--primary)';
+  btn.style.color = 'var(--primary)';
+  btn.style.fontWeight = '700';
+}}
+
+// ── Transcript analysis tabs ────────────────────────────────────
+function showTATab(name, btn) {{
+  ['findings','top','bottom'].forEach(n => {{
+    const el = document.getElementById('ta-'+n);
+    if (el) el.style.display = n === name ? '' : 'none';
+  }});
+  document.querySelectorAll('.ta-tab-btn').forEach(b => {{
     b.style.borderBottomColor = 'transparent';
     b.style.color = 'var(--text-muted)';
     b.style.fontWeight = '600';

@@ -2,3 +2,13 @@ thumbnails/
 __pycache__/
 *.pyc
 .env
+
+# Google OAuth credentials & tokens
+client_secret.json
+token.json
+
+# YouTube session cookies
+yt_cookies.txt
+
+# Generated analysis data
+transcript_analysis.json
