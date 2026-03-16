@@ -1019,6 +1019,18 @@ body {{
 .insight.red   {{ background: var(--red-bg);    border-color: var(--red);   }}
 .insight.green {{ background: var(--green-bg);  border-color: var(--green); }}
 .insight.yellow{{ background: var(--yellow-bg); border-color: var(--yellow);}}
+/* Competitor dropdowns */
+.comp-dropdown {{ border: 1px solid var(--border); border-radius: 12px; background: var(--surface); overflow: hidden; }}
+.comp-dropdown[open] {{ background: var(--bg); }}
+.comp-summary {{ padding: 14px 18px; cursor: pointer; display: flex; align-items: center; gap: 6px; list-style: none; user-select: none; }}
+.comp-summary::-webkit-details-marker {{ display: none; }}
+.comp-summary::before {{ content: '▸'; font-size: 1rem; color: var(--primary); transition: transform .2s; margin-right: 4px; }}
+.comp-dropdown[open] .comp-summary::before {{ transform: rotate(90deg); }}
+.comp-summary:hover {{ background: var(--primary-bg); }}
+.comp-detail {{ padding: 0 18px 18px; }}
+.comp-section-grid {{ display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }}
+@media (max-width: 900px) {{ .comp-section-grid {{ grid-template-columns: 1fr; }} }}
+.comp-section-label {{ font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 8px; }}
 .table-wrap {{ overflow-x: auto; }}
 table {{ width: 100%; border-collapse: collapse; font-size: .85rem; }}
 th {{ background: var(--surface2); text-align: left; padding: 9px 12px; font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); border-bottom: 1px solid var(--border); }}
@@ -1737,45 +1749,229 @@ footer {{ text-align: center; color: var(--text-muted); font-size: .75rem; paddi
   </div>
 
   <div class="card">
-    <div class="card-title">🌎 Las Damitas Histeria — Spanish-Language Competitor Breakdown</div>
-    <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:14px">2-host Mexican comedy podcast under Sonoro network. Founded Feb 2023. 355K YouTube subs, 50M+ views, 13.4M TikTok followers, live touring shows across Latin America and Europe. This is what a fully scaled version of OKStorytime looks like — in another language.</p>
+    <div class="card-title">🔍 Competitor Deep Dives — Click to Expand</div>
+    <p style="font-size:.82rem;color:var(--text-muted);margin:0 0 14px">Each competitor broken down into what they do differently, what we can steal, and what we're already doing better.</p>
 
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
-      <div>
-        <div style="font-size:.78rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">What They Do Differently</div>
-        <div class="insight green" style="margin-bottom:8px"><strong>Verdict format, not storytime.</strong> They don't just read stories — they render a verdict. Every episode has a clear "who's right / who's wrong" outcome the audience votes on. Viewers aren't passive — they're jury members.</div>
-        <div class="insight green" style="margin-bottom:8px"><strong>Proprietary vocabulary builds a tribe.</strong> "Damita" (their fan name), "Ramiro" (their word for any bad boyfriend), "histeriquilla/eneje" (verdict labels) — their audience adopts this language. It turns viewers into members of a club. None of your competitors have this.</div>
-        <div class="insight green" style="margin-bottom:8px"><strong>Clip machine strategy.</strong> One weekly 60-min recording session produces: 1 full episode + 4–6 standalone clips, all published across the same week. They hit 7–10 uploads/week without extra recording time.</div>
-        <div class="insight green"><strong>Audio + video simultaneously.</strong> Because it's two hosts talking at a table, the episodes work perfectly as podcasts on Spotify AND as YouTube videos. English storytime channels are almost always video-first. This doubles their distribution.</div>
+    <!-- MrBallen -->
+    <details class="comp-dropdown" style="margin-bottom:10px">
+      <summary class="comp-summary">
+        <span style="font-weight:700;font-size:.95rem">MrBallen</span>
+        <span style="font-size:.78rem;color:var(--text-muted);margin-left:8px">10.7M subs · Solo narrator · 1–3M avg views</span>
+      </summary>
+      <div class="comp-detail">
+        <div class="comp-section-grid">
+          <div>
+            <div class="comp-section-label" style="color:var(--primary)">What They Do Differently</div>
+            <div class="insight green" style="margin-bottom:8px"><strong>Easter egg system.</strong> He hides something in every video and pins the first comment that finds it — forces full watch-throughs and creates a game layer on top of content.</div>
+            <div class="insight green" style="margin-bottom:8px"><strong>True crime adjacent positioning.</strong> He's not "Reddit stories" — he's "strange, dark, and mysterious." This earns $6–12 RPM vs the $4–8 RPM typical Reddit story channels get.</div>
+            <div class="insight green"><strong>Cinematic production.</strong> B-roll, sound design, dramatic pacing. Every video feels like a mini-documentary, not a podcast recording.</div>
+          </div>
+          <div>
+            <div class="comp-section-label" style="color:var(--yellow)">What We Can Steal</div>
+            <div class="insight yellow" style="margin-bottom:8px"><strong>The Easter egg concept.</strong> Hide a callback joke or "story of the week" answer that only makes sense if you watched the whole episode. Pin first comment that finds it.</div>
+            <div class="insight yellow"><strong>The hook formula.</strong> MrBallen opens every video with a 15-second dramatic summary that makes the story sound impossible. Apply this to your cold opens.</div>
+          </div>
+          <div>
+            <div class="comp-section-label" style="color:var(--green)">What We're Doing Differently</div>
+            <div class="insight green" style="margin-bottom:8px"><strong>Multi-host energy.</strong> MrBallen is solo — you have 4 hosts reacting in real-time. That creates natural comedy and unpredictable moments he can't replicate.</div>
+            <div class="insight green"><strong>Live show format.</strong> Your content is recorded live with audience interaction. MrBallen is heavily scripted and edited. Your authenticity is your edge.</div>
+          </div>
+        </div>
       </div>
-      <div>
-        <div style="font-size:.78rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">What You Can Steal</div>
-        <div class="insight yellow" style="margin-bottom:8px"><strong>Give your audience a verdict name.</strong> "OKStorytime Jury," "The Council," "The Verdict Squad" — something that makes fans feel like participants, not viewers. Use it consistently in titles, comments, and on-air.</div>
-        <div class="insight yellow" style="margin-bottom:8px"><strong>Name the villain archetype.</strong> "Ramiro" is genius — it's a named stand-in for every bad partner in every story. You could create your own recurring nickname for the antagonist in your stories. It creates inside-joke culture that keeps people coming back.</div>
-        <div class="insight yellow" style="margin-bottom:8px"><strong>The clip machine model.</strong> You're already recording 1–3 hour live shows. You should be extracting 4–6 standalone clip videos per episode — the most shocking moment, the funniest reaction, the best verdict, the biggest disagreement. Post them as separate videos through the week.</div>
-        <div class="insight yellow"><strong>Their full episodes hit 70K–150K regularly.</strong> They have fewer subscribers than you. The difference is intentional format structure: numbered episodes (T3 E47), clear topic labels, consistent release cadence. Viewers know exactly what they're getting.</div>
-      </div>
-    </div>
+    </details>
 
-    <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px;margin-top:4px">
-      <div style="font-size:.78rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Their Engagement Numbers (Recent Episodes)</div>
-      <div style="display:flex;flex-wrap:wrap;gap:8px">
-        <div style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px 14px;font-size:.82rem"><span style="font-weight:700;color:var(--primary)">150,920</span> views — T3 E47 Fracasos en la cocina</div>
-        <div style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px 14px;font-size:.82rem"><span style="font-weight:700;color:var(--primary)">138,771</span> views — viral clip from episode</div>
-        <div style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px 14px;font-size:.82rem"><span style="font-weight:700;color:var(--primary)">73,467</span> views — T3 E48 Opiniones impopulares</div>
-        <div style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px 14px;font-size:.82rem"><span style="font-weight:700;color:var(--primary)">70,546</span> views — T2 E1 Momentos (guest episode)</div>
-        <div style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px 14px;font-size:.82rem"><span style="font-weight:700;color:var(--primary)">4.2%</span> rating rate — unusually high, signals deep loyalty</div>
-        <div style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px 14px;font-size:.82rem"><span style="font-weight:700;color:var(--primary)">209K</span> views — all-time top video</div>
+    <!-- Two Hot Takes -->
+    <details class="comp-dropdown" style="margin-bottom:10px">
+      <summary class="comp-summary">
+        <span style="font-weight:700;font-size:.95rem">Two Hot Takes</span>
+        <span style="font-size:.78rem;color:var(--text-muted);margin-left:8px">875K subs · Multi-host reaction · ~150K avg views</span>
+      </summary>
+      <div class="comp-detail">
+        <div class="comp-section-grid">
+          <div>
+            <div class="comp-section-label" style="color:var(--primary)">What They Do Differently</div>
+            <div class="insight green" style="margin-bottom:8px"><strong>TikTok funnel.</strong> They clip the most shocking 30-second moment from every episode for TikTok. Their TikTok (812K) feeds YouTube directly.</div>
+            <div class="insight green" style="margin-bottom:8px"><strong>Celebrity guest episodes.</strong> Regular guests from Bachelor Nation and podcasting bring built-in audiences to each episode.</div>
+            <div class="insight green"><strong>iHeart distribution.</strong> Audio podcast distributed through iHeart gives them a second discovery engine beyond YouTube.</div>
+          </div>
+          <div>
+            <div class="comp-section-label" style="color:var(--yellow)">What We Can Steal</div>
+            <div class="insight yellow" style="margin-bottom:8px"><strong>The TikTok clip funnel.</strong> You have 1.1M TikTok followers — more than them. You should be posting the single most shocking 30-second moment from every episode to TikTok with a "full video on YouTube" CTA.</div>
+            <div class="insight yellow"><strong>Guest cross-promotion.</strong> When you have guests, make them share the episode to their audience. Their guests always do — yours should too.</div>
+          </div>
+          <div>
+            <div class="comp-section-label" style="color:var(--green)">What We're Doing Differently</div>
+            <div class="insight green" style="margin-bottom:8px"><strong>Bigger TikTok presence.</strong> You have 1.1M TikTok followers vs their 812K. You're under-leveraging a larger platform.</div>
+            <div class="insight green"><strong>Apple Podcasts #5 Comedy.</strong> Your podcast is ranking higher than theirs despite fewer YouTube subs. The audio audience is loyal.</div>
+          </div>
+        </div>
       </div>
-    </div>
+    </details>
+
+    <!-- rSlash -->
+    <details class="comp-dropdown" style="margin-bottom:10px">
+      <summary class="comp-summary">
+        <span style="font-weight:700;font-size:.95rem">rSlash</span>
+        <span style="font-size:.78rem;color:var(--text-muted);margin-left:8px">1.95M subs · Audio narration · ~50K avg views</span>
+      </summary>
+      <div class="comp-detail">
+        <div class="comp-section-grid">
+          <div>
+            <div class="comp-section-label" style="color:var(--primary)">What They Do Differently</div>
+            <div class="insight green" style="margin-bottom:8px"><strong>Insane consistency.</strong> 2,000+ video library. Same format every time. Viewers know exactly what they're getting. The algorithm loves predictability.</div>
+            <div class="insight green" style="margin-bottom:8px"><strong>Faceless/audio-only format.</strong> Zero production overhead. Can upload daily without burnout because there's no set, no camera, no editing beyond audio.</div>
+            <div class="insight green"><strong>Strong Patreon.</strong> Monetizes superfans directly. Doesn't rely solely on ad revenue.</div>
+          </div>
+          <div>
+            <div class="comp-section-label" style="color:var(--yellow)">What We Can Steal</div>
+            <div class="insight yellow" style="margin-bottom:8px"><strong>The consistent format structure.</strong> Every rSlash video follows the exact same template. Your show format is strong but thumbnail/title inconsistency confuses new visitors. Lock in a visual template.</div>
+            <div class="insight yellow"><strong>Subreddit-specific episodes.</strong> rSlash's best performers are titled by subreddit (r/ProRevenge, r/AITA). Consider organizing your long-form by theme the same way.</div>
+          </div>
+          <div>
+            <div class="comp-section-label" style="color:var(--green)">What We're Doing Differently</div>
+            <div class="insight green" style="margin-bottom:8px"><strong>Personality and faces.</strong> rSlash is faceless audio. You have real hosts with reactions, expressions, and chemistry. That creates a parasocial connection he can never build.</div>
+            <div class="insight green"><strong>Higher ceiling per video.</strong> Your top videos hit 1M+. rSlash rarely breaks 200K. Your format has more viral potential when the title/thumbnail hit.</div>
+          </div>
+        </div>
+      </div>
+    </details>
+
+    <!-- Comfort Level -->
+    <details class="comp-dropdown" style="margin-bottom:10px">
+      <summary class="comp-summary">
+        <span style="font-weight:700;font-size:.95rem">Comfort Level</span>
+        <span style="font-size:.78rem;color:var(--text-muted);margin-left:8px">176K subs · Multi-host podcast · TikTok-first</span>
+      </summary>
+      <div class="comp-detail">
+        <div class="comp-section-grid">
+          <div>
+            <div class="comp-section-label" style="color:var(--primary)">What They Do Differently</div>
+            <div class="insight green" style="margin-bottom:8px"><strong>TikTok-first strategy.</strong> They built 812K TikTok followers before YouTube. Every YouTube video is promoted through TikTok clips first.</div>
+            <div class="insight green"><strong>Younger, trend-aware positioning.</strong> They lean into current internet culture and trending topics more aggressively than traditional storytime channels.</div>
+          </div>
+          <div>
+            <div class="comp-section-label" style="color:var(--yellow)">What We Can Steal</div>
+            <div class="insight yellow"><strong>TikTok-to-YouTube pipeline.</strong> They prove the funnel works at your size. Clip the best 30 seconds, post to TikTok, link full video. You already have the TikTok audience — just need the bridge content.</div>
+          </div>
+          <div>
+            <div class="comp-section-label" style="color:var(--green)">What We're Doing Differently</div>
+            <div class="insight green" style="margin-bottom:8px"><strong>Larger YouTube subscriber base.</strong> You have more YouTube subs and a longer track record. Your library is a massive asset they don't have yet.</div>
+            <div class="insight green"><strong>Podcast distribution.</strong> Apple Podcasts #5 Comedy. They don't have comparable audio distribution.</div>
+          </div>
+        </div>
+      </div>
+    </details>
+
+    <!-- Charlotte Dobre -->
+    <details class="comp-dropdown" style="margin-bottom:10px">
+      <summary class="comp-summary">
+        <span style="font-weight:700;font-size:.95rem">Charlotte Dobre</span>
+        <span style="font-size:.78rem;color:var(--text-muted);margin-left:8px">Solo host · Reaction/commentary format</span>
+      </summary>
+      <div class="comp-detail">
+        <div class="comp-section-grid">
+          <div>
+            <div class="comp-section-label" style="color:var(--primary)">What They Do Differently</div>
+            <div class="insight green" style="margin-bottom:8px"><strong>Solo host brand.</strong> Charlotte IS the brand. Her face, her reactions, her personality — viewers subscribe for her specifically, not the stories.</div>
+            <div class="insight green"><strong>Aggressive thumbnail formula.</strong> Every thumbnail: extreme close-up, mouth open, direct eye contact, bold text overlay. Zero variation = instant recognition in feed.</div>
+          </div>
+          <div>
+            <div class="comp-section-label" style="color:var(--yellow)">What We Can Steal</div>
+            <div class="insight yellow"><strong>The no-variation thumbnail approach.</strong> Her thumbnails are basically a template. Same face position, same expression, same framing. You should lock Sam's face into the same template every video.</div>
+          </div>
+          <div>
+            <div class="comp-section-label" style="color:var(--green)">What We're Doing Differently</div>
+            <div class="insight green"><strong>Multi-host dynamic.</strong> Charlotte is solo. Your group chemistry creates moments she can't — disagreements, reactions, humor between hosts. That's more entertaining and harder to replicate.</div>
+          </div>
+        </div>
+      </div>
+    </details>
+
+    <!-- Am I the Jerk -->
+    <details class="comp-dropdown" style="margin-bottom:10px">
+      <summary class="comp-summary">
+        <span style="font-weight:700;font-size:.95rem">Am I the Jerk?</span>
+        <span style="font-size:.78rem;color:var(--text-muted);margin-left:8px">1.24M subs · Voice-acted narration</span>
+      </summary>
+      <div class="comp-detail">
+        <div class="comp-section-grid">
+          <div>
+            <div class="comp-section-label" style="color:var(--primary)">What They Do Differently</div>
+            <div class="insight green" style="margin-bottom:8px"><strong>Voice-acted characters.</strong> Multiple character voices make clips feel dramatic — like a radio play, not someone reading Reddit. This keeps retention high.</div>
+            <div class="insight green"><strong>Massive Shorts revenue.</strong> Estimated $30K/mo from Shorts alone. They figured out the Short-form algorithm better than most in this niche.</div>
+          </div>
+          <div>
+            <div class="comp-section-label" style="color:var(--yellow)">What We Can Steal</div>
+            <div class="insight yellow"><strong>Character voice moments.</strong> You don't need to voice-act every story, but having hosts briefly "become" a character when reading dialogue makes the content more dynamic.</div>
+          </div>
+          <div>
+            <div class="comp-section-label" style="color:var(--green)">What We're Doing Differently</div>
+            <div class="insight green"><strong>Real human reactions.</strong> Their content is scripted and voice-acted. Yours is genuine reactions from real people. Authenticity creates deeper loyalty even if their production is slicker.</div>
+          </div>
+        </div>
+      </div>
+    </details>
+
+    <!-- Las Damitas Histeria -->
+    <details class="comp-dropdown" style="margin-bottom:10px">
+      <summary class="comp-summary">
+        <span style="font-weight:700;font-size:.95rem">Las Damitas Histeria 🇲🇽</span>
+        <span style="font-size:.78rem;color:var(--text-muted);margin-left:8px">355K subs · 13.4M TikTok · 2-host comedy podcast</span>
+      </summary>
+      <div class="comp-detail">
+        <p style="font-size:.82rem;color:var(--text-muted);margin:0 0 12px">2-host Mexican comedy podcast under Sonoro network. Founded Feb 2023. 50M+ views, live touring shows across Latin America and Europe. This is what a fully scaled version of OKStorytime looks like — in another language.</p>
+        <div class="comp-section-grid">
+          <div>
+            <div class="comp-section-label" style="color:var(--primary)">What They Do Differently</div>
+            <div class="insight green" style="margin-bottom:8px"><strong>Verdict format, not storytime.</strong> They don't just read stories — they render a verdict. Every episode has a clear "who's right / who's wrong" outcome the audience votes on. Viewers aren't passive — they're jury members.</div>
+            <div class="insight green" style="margin-bottom:8px"><strong>Proprietary vocabulary builds a tribe.</strong> "Damita" (their fan name), "Ramiro" (their word for any bad boyfriend), "histeriquilla/eneje" (verdict labels) — their audience adopts this language. Turns viewers into club members.</div>
+            <div class="insight green" style="margin-bottom:8px"><strong>Clip machine strategy.</strong> One weekly 60-min recording session produces: 1 full episode + 4–6 standalone clips, all published across the same week.</div>
+            <div class="insight green"><strong>Audio + video simultaneously.</strong> Episodes work perfectly as podcasts on Spotify AND as YouTube videos. Doubles their distribution.</div>
+          </div>
+          <div>
+            <div class="comp-section-label" style="color:var(--yellow)">What We Can Steal</div>
+            <div class="insight yellow" style="margin-bottom:8px"><strong>Give your audience a verdict name.</strong> "OKStorytime Jury," "The Council," "The Verdict Squad" — something that makes fans feel like participants, not viewers.</div>
+            <div class="insight yellow" style="margin-bottom:8px"><strong>Name the villain archetype.</strong> "Ramiro" is genius — create your own recurring nickname for the antagonist in stories. Inside-joke culture keeps people coming back.</div>
+            <div class="insight yellow"><strong>The clip machine model.</strong> You're already recording 1–3 hour live shows. Extract 4–6 standalone clips per episode — most shocking moment, funniest reaction, best verdict, biggest disagreement.</div>
+          </div>
+          <div>
+            <div class="comp-section-label" style="color:var(--green)">What We're Doing Differently</div>
+            <div class="insight green" style="margin-bottom:8px"><strong>English-language market.</strong> You're in the largest YouTube market. Their 355K subs in Spanish = your 182K subs in English is actually comparable reach given market size.</div>
+            <div class="insight green"><strong>4 hosts vs 2.</strong> More hosts = more personality combinations, more reaction variety, more disagreement. That's harder to replicate.</div>
+          </div>
+        </div>
+      </div>
+    </details>
+
+    <!-- Mark Narrations -->
+    <details class="comp-dropdown" style="margin-bottom:10px">
+      <summary class="comp-summary">
+        <span style="font-weight:700;font-size:.95rem">Mark Narrations</span>
+        <span style="font-size:.78rem;color:var(--text-muted);margin-left:8px">Solo narrator · Reddit story niche</span>
+      </summary>
+      <div class="comp-detail">
+        <div class="comp-section-grid">
+          <div>
+            <div class="comp-section-label" style="color:var(--primary)">What They Do Differently</div>
+            <div class="insight green"><strong>High-volume consistency.</strong> Daily uploads with extremely consistent formatting. The algorithm rewards the predictability.</div>
+          </div>
+          <div>
+            <div class="comp-section-label" style="color:var(--yellow)">What We Can Steal</div>
+            <div class="insight yellow"><strong>Subreddit-tagged titles.</strong> Mark's titles always include the subreddit, which acts as a keyword and genre signal for both viewers and the algorithm.</div>
+          </div>
+          <div>
+            <div class="comp-section-label" style="color:var(--green)">What We're Doing Differently</div>
+            <div class="insight green"><strong>Production value and personality.</strong> Mark is solo narration. Your multi-host live format creates genuine entertainment value beyond just reading stories.</div>
+          </div>
+        </div>
+      </div>
+    </details>
+
   </div>
 
   <div class="card">
-    <div class="card-title">💡 What Top Competitors Do That You Could Adopt</div>
-    <div class="insight green"><strong>MrBallen's Easter Egg System:</strong> He hides something in every video and pins the first comment that finds it — forces full watch-throughs. You could hide a callback joke or "story of the week" answer that only makes sense if you watched the whole episode.</div>
-    <div class="insight green"><strong>Two Hot Takes' TikTok Funnel:</strong> They clip the most shocking 30-second moment from every episode for TikTok. Their TikTok (812K) feeds YouTube. You have 1.1M TikTok followers — use them harder to drive YouTube watch time.</div>
-    <div class="insight green"><strong>rSlash's Consistent Format:</strong> Every video follows the exact same structure. Viewers know exactly what they're getting. Your show format is strong — but thumbnail/title inconsistency confuses new visitors.</div>
-    <div class="insight yellow"><strong>The CPM opportunity:</strong> Relationship/AITA drama earns $4–8 RPM. True crime adjacent content earns $6–12 RPM. You're in the right niche — you just need the views to capitalize on it.</div>
+    <div class="card-title">💰 The CPM Opportunity</div>
+    <div class="insight yellow"><strong>Relationship/AITA drama earns $4–8 RPM.</strong> True crime adjacent content earns $6–12 RPM. You're in the right niche — you just need the views to capitalize on it.</div>
   </div>
 </div>
 
