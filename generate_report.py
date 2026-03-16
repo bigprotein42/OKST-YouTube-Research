@@ -274,6 +274,29 @@ def load_csv(filename="okstorytime_videos.csv"):
             row.setdefault("subscribers_gained", 0)
             videos.append(row)
 
+    # Merge first-24h CTR if available (from fetch_analytics.py)
+    first24h_file = "okstorytime_first24h_ctr.csv"
+    if os.path.exists(first24h_file):
+        ctr24_map = {}
+        with open(first24h_file, newline="", encoding="utf-8") as f:
+            for row in csv.DictReader(f):
+                ctr24_map[row["video_id"]] = row
+
+        matched_24h = 0
+        for v in videos:
+            c = ctr24_map.get(v.get("video_id", ""))
+            if c:
+                v["ctr_24h_pct"]      = round(float(c.get("ctr_24h_pct", 0) or 0), 2)
+                v["views_24h"]        = int(float(c.get("views_24h", 0) or 0))
+                v["impressions_24h"]  = int(float(c.get("impressions_24h", 0) or 0))
+                matched_24h += 1
+        print(f"  Merged first-24h CTR for {matched_24h}/{len(videos)} videos")
+    else:
+        for v in videos:
+            v.setdefault("ctr_24h_pct", 0)
+            v.setdefault("views_24h", 0)
+            v.setdefault("impressions_24h", 0)
+
     # Merge Studio analytics if available
     studio_file = "okstorytime_studio_analytics.csv"
     if os.path.exists(studio_file):
@@ -945,6 +968,8 @@ def build(videos):
         "rpm": v.get("rpm_usd", 0),
         "watch_hours": v.get("watch_time_hours", 0),
         "avg_pct_viewed": v.get("avg_pct_viewed", 0),
+        "ctr_24h": v.get("ctr_24h_pct", 0),
+        "views_24h": v.get("views_24h", 0),
     } for v in videos])
 
     # Table builders
@@ -1606,8 +1631,8 @@ footer {{ text-align: center; color: var(--text-muted); font-size: .75rem; paddi
   </div>
   <div class="card">
     <div class="card-title">🏆 Top Performing Long-Form Thumbnails — Study These</div>
-    <p style="font-size:.84rem;color:var(--text-muted);margin-bottom:8px">True long-form only (5+ min horizontal). CTR badge color: <span class="ctr-badge ctr-great">12%+ Banger</span> <span class="ctr-badge ctr-good">8-12% Good</span> <span class="ctr-badge ctr-ok">4-8% OK</span> <span class="ctr-badge ctr-low">&lt;4% Weak</span></p>
-    <p style="font-size:.78rem;color:var(--text-muted);margin-bottom:12px">💡 <strong>Sam's rule:</strong> If CTR is 12%+ AND most traffic is Browse Features (not Shorts/Suggested), that's a thumbnail worth copying. Check traffic source in YouTube Studio > video > Reach tab.</p>
+    <p style="font-size:.84rem;color:var(--text-muted);margin-bottom:8px">True long-form only (5+ min horizontal). CTR badge: <span class="ctr-badge ctr-great">12%+ Banger</span> <span class="ctr-badge ctr-good">8-12% Good</span> <span class="ctr-badge ctr-ok">4-8% OK</span> <span class="ctr-badge ctr-low">&lt;4% Weak</span> &nbsp;·&nbsp; <strong>24h</strong> = first 24-hour CTR (via API) &nbsp;·&nbsp; <strong>LT</strong> = lifetime CTR (Studio export)</p>
+    <p style="font-size:.78rem;color:var(--text-muted);margin-bottom:12px">💡 <strong>Sam's rule:</strong> 12%+ CTR in the first hour = banger. Get first-24h data by having Sam run <code style="background:#f5f3ff;padding:1px 5px;border-radius:4px;color:var(--primary)">auth_youtube.py</code> once, then <code style="background:#f5f3ff;padding:1px 5px;border-radius:4px;color:var(--primary)">fetch_analytics.py</code>.</p>
     <div id="thumb-filters" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
       <button class="filter-btn active" onclick="filterThumbs('all',this)">Lifetime</button>
       {thumb_year_btns}
@@ -2685,10 +2710,17 @@ function filterThumbs(period, btn) {{
                 : v.view_count >= 1000    ? Math.round(v.view_count/1000)+'K'
                 : v.view_count;
     const title = v.title.length > 45 ? v.title.slice(0,45)+'…' : v.title;
-    // CTR badge (from studio data)
+    // First-24h CTR badge (priority) or lifetime CTR
+    const ctr24 = v.ctr_24h || 0;
     const ctr = v.ctr || 0;
-    const ctrCls = ctr >= 12 ? 'ctr-great' : ctr >= 8 ? 'ctr-good' : ctr >= 4 ? 'ctr-ok' : 'ctr-low';
-    const ctrBadge = ctr > 0 ? '<span class="ctr-badge '+ctrCls+'">'+ctr.toFixed(1)+'% CTR</span>' : '';
+    let ctrBadge = '';
+    if (ctr24 > 0) {{
+      const cls24 = ctr24 >= 12 ? 'ctr-great' : ctr24 >= 8 ? 'ctr-good' : ctr24 >= 4 ? 'ctr-ok' : 'ctr-low';
+      ctrBadge = '<span class="ctr-badge '+cls24+'" title="First 24-hour CTR">'+ctr24.toFixed(1)+'% 24h</span>';
+    }} else if (ctr > 0) {{
+      const ctrCls = ctr >= 12 ? 'ctr-great' : ctr >= 8 ? 'ctr-good' : ctr >= 4 ? 'ctr-ok' : 'ctr-low';
+      ctrBadge = '<span class="ctr-badge '+ctrCls+'" title="Lifetime CTR (not first 24h)">'+ctr.toFixed(1)+'% LT</span>';
+    }}
     // Revenue badge
     const rev = v.revenue || 0;
     const revBadge = rev > 0 ? '<span class="rev-badge">$'+Math.round(rev).toLocaleString()+'</span>' : '';

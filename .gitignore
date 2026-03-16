@@ -15,6 +15,7 @@ transcript_analysis.json
 okstorytime_studio_analytics.csv
 okstorytime_monthly_analytics.csv
 okstorytime_video_analytics.csv
+okstorytime_first24h_ctr.csv
 
 # Studio exports (may contain revenue data)
 studio_exports/*.csv
