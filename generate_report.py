@@ -688,6 +688,17 @@ def build(videos):
     comp_thumb_dict_json = json.dumps(comp_thumb_dict)
     comp_json = json.dumps(comp_json_items)
 
+    # All competitor items for title list (including ones without thumbnails)
+    comp_all_json = json.dumps([{
+        "video_id": item["video_id"],
+        "channel": item["channel"],
+        "title": item.get("title", ""),
+        "published_date": item.get("published_date", ""),
+        "published": item.get("published", ""),
+        "url": item.get("url", ""),
+        "view_count": item.get("view_count", 0),
+    } for item in sorted(comp_items, key=lambda x: x.get("view_count", 0), reverse=True)])
+
     # ── Weekly Launch Tracker data ──────────────────────────────
     now_dt = datetime.now(timezone.utc)
     GOAL_VIEWS = 10_000
@@ -1627,6 +1638,7 @@ footer {{ text-align: center; color: var(--text-muted); font-size: .75rem; paddi
       <button class="filter-btn" onclick="filterCompThumbs('all',this)">All Time</button>
     </div>
     <div id="comp-thumb-grid"></div>
+    <button id="comp-thumb-more" onclick="showMoreCompThumbs()" style="display:none;margin-top:12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 20px;font-size:.85rem;font-weight:600;cursor:pointer;color:var(--primary);width:100%">Show 25 More</button>
   </div>
 
   <!-- Thumbnail + Title Workshop -->
@@ -1904,11 +1916,16 @@ footer {{ text-align: center; color: var(--text-muted); font-size: .75rem; paddi
 
   <!-- Competitor Titles -->
   <div class="card">
-    <div class="card-title">🏆 Competitor Titles — Last 7 Days</div>
-    <p style="font-size:.83rem;color:var(--text-muted);margin:0 0 12px">What Two Hot Takes, rSlash, MrBallen &amp; Comfort Level are titling this week. Study the patterns.</p>
-    <div style="display:flex;flex-direction:column;gap:6px">
-      {comp_title_rows()}
+    <div class="card-title">🏆 Competitor Titles</div>
+    <p style="font-size:.83rem;color:var(--text-muted);margin:0 0 12px">What your competitors are titling. Study the patterns — sorted by views.</p>
+    <div id="comp-title-filters" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+      <button class="filter-btn" onclick="filterCompTitles('all',this)">Lifetime</button>
+      <button class="filter-btn" onclick="filterCompTitles('year',this)">This Year</button>
+      <button class="filter-btn" onclick="filterCompTitles('30d',this)">Last 30 Days</button>
+      <button class="filter-btn active" onclick="filterCompTitles('7d',this)">Last 7 Days</button>
     </div>
+    <div id="comp-title-list" style="display:flex;flex-direction:column;gap:6px"></div>
+    <button id="comp-title-more" onclick="showMoreCompTitles()" style="display:none;margin-top:12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 20px;font-size:.85rem;font-weight:600;cursor:pointer;color:var(--primary);width:100%">Show 25 More</button>
   </div>
 
   <!-- Title Pattern Hypothesis Analyzer -->
@@ -2444,6 +2461,7 @@ const ALL_VIDEOS   = {video_json};
 const MONTHLY_DATA = {monthly_json};
 const THUMB_DICT   = {thumb_dict_json};
 const COMP_VIDEOS  = {comp_json};
+const COMP_ALL     = {comp_all_json};
 const COMP_THUMBS  = {comp_thumb_dict_json};
 
 const DAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
@@ -2825,9 +2843,17 @@ function showTATab(name, btn) {{
 }}
 
 // ── Competitor thumbnail filter ──────────────────────────────────
+let _compThumbPeriod = 'week';
+let _compThumbShown = 25;
+let _compThumbFiltered = [];
+
 function filterCompThumbs(period, btn) {{
-  document.querySelectorAll('#comp-thumb-filters .filter-btn').forEach(b => b.classList.remove('active'));
-  if (btn) btn.classList.add('active');
+  if (btn) {{
+    document.querySelectorAll('#comp-thumb-filters .filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  }}
+  _compThumbPeriod = period;
+  _compThumbShown = 25;
 
   const now = new Date();
   let cutoff;
@@ -2836,19 +2862,27 @@ function filterCompThumbs(period, btn) {{
   else if (period === 'year') cutoff = new Date(now - 365*24*60*60*1000);
   else cutoff = new Date(0);
 
-  const pool = COMP_VIDEOS
+  _compThumbFiltered = COMP_VIDEOS
     .filter(v => COMP_THUMBS[v.video_id] && new Date(v.published_date) >= cutoff)
     .sort((a,b) => b.view_count - a.view_count);
 
+  renderCompThumbs();
+}}
+
+function renderCompThumbs() {{
   const grid = document.getElementById('comp-thumb-grid');
+  const moreBtn = document.getElementById('comp-thumb-more');
   if (!grid) return;
 
-  if (pool.length === 0) {{
+  if (_compThumbFiltered.length === 0) {{
     grid.innerHTML = '<p style="color:var(--text-muted);padding:12px 0">No competitor thumbnails for this period yet. History builds daily with each refresh.</p>';
+    if (moreBtn) moreBtn.style.display = 'none';
     return;
   }}
 
-  grid.innerHTML = '<div class="thumb-grid">' + pool.map(v => {{
+  const visible = _compThumbFiltered.slice(0, _compThumbShown);
+
+  grid.innerHTML = '<div class="thumb-grid">' + visible.map(v => {{
     const views = v.view_count >= 1000000 ? (v.view_count/1000000).toFixed(1)+'M'
                 : v.view_count >= 1000    ? Math.round(v.view_count/1000)+'K'
                 : v.view_count;
@@ -2863,7 +2897,23 @@ function filterCompThumbs(period, btn) {{
       + '<span style="font-size:.7rem;color:var(--text-muted)">'+v.published+'</span>'
       + '</div></div>';
   }}).join('') + '</div>';
+
+  if (moreBtn) {{
+    const remaining = _compThumbFiltered.length - _compThumbShown;
+    if (remaining > 0) {{
+      moreBtn.style.display = 'block';
+      moreBtn.textContent = 'Show 25 More (' + remaining + ' remaining)';
+    }} else {{
+      moreBtn.style.display = 'none';
+    }}
+  }}
 }}
+
+function showMoreCompThumbs() {{
+  _compThumbShown += 25;
+  renderCompThumbs();
+}}
+window.showMoreCompThumbs = showMoreCompThumbs;
 
 // ── Initialize ──────────────────────────────────────────────────
 filterAnalytics('all', document.getElementById('fb-all'));
@@ -3302,6 +3352,78 @@ window.addEventListener('DOMContentLoaded', () => {{
 
 window.handleCSVDrop = handleCSVDrop;
 
+// ── Competitor Titles (filtered + paginated) ──────────────────
+let _compTitlePeriod = '7d';
+let _compTitleShown = 25;
+let _compTitleFiltered = [];
+
+function filterCompTitles(period, btn) {{
+  if (btn) {{
+    document.querySelectorAll('#comp-title-filters .filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  }}
+  _compTitlePeriod = period;
+  _compTitleShown = 25;
+
+  const now = new Date();
+  let pool = [...COMP_ALL];
+
+  if (period === '7d') {{
+    const cut = new Date(now - 7*86400000).toISOString().slice(0,10);
+    pool = pool.filter(v => v.published_date >= cut);
+  }} else if (period === '30d') {{
+    const cut = new Date(now - 30*86400000).toISOString().slice(0,10);
+    pool = pool.filter(v => v.published_date >= cut);
+  }} else if (period === 'year') {{
+    const yr = String(now.getFullYear());
+    pool = pool.filter(v => v.published_date && v.published_date.startsWith(yr));
+  }}
+
+  _compTitleFiltered = pool.sort((a,b) => (b.view_count||0) - (a.view_count||0));
+  renderCompTitles();
+}}
+
+function renderCompTitles() {{
+  const list = document.getElementById('comp-title-list');
+  const moreBtn = document.getElementById('comp-title-more');
+  if (!list) return;
+
+  const visible = _compTitleFiltered.slice(0, _compTitleShown);
+  if (visible.length === 0) {{
+    list.innerHTML = '<p style="color:var(--text-muted);font-size:.85rem">No competitor videos found for this period.</p>';
+    moreBtn.style.display = 'none';
+    return;
+  }}
+
+  list.innerHTML = visible.map(v => {{
+    const vc = v.view_count || 0;
+    const views = vc >= 1000000 ? (vc/1000000).toFixed(1)+'M views'
+                : vc >= 1000 ? Math.round(vc/1000)+'K views'
+                : vc > 0 ? vc+' views' : '';
+    return '<div style="display:flex;align-items:baseline;gap:8px;padding:7px 10px;border-radius:8px;background:var(--surface2);border:1px solid var(--border)">'
+      + '<span class="thumb-dur" style="flex-shrink:0">' + _esc(v.channel) + '</span>'
+      + '<a href="' + v.url + '" target="_blank" style="font-size:.875rem;font-weight:600;color:var(--text);text-decoration:none;flex:1">' + _esc(v.title) + '</a>'
+      + (views ? '<span style="font-size:.72rem;color:var(--text-muted);margin-left:6px">' + views + '</span>' : '')
+      + '<span style="font-size:.72rem;color:var(--text-muted);flex-shrink:0">' + (v.published || '') + '</span>'
+      + '</div>';
+  }}).join('');
+
+  const remaining = _compTitleFiltered.length - _compTitleShown;
+  if (remaining > 0) {{
+    moreBtn.style.display = 'block';
+    moreBtn.textContent = 'Show 25 More (' + remaining + ' remaining)';
+  }} else {{
+    moreBtn.style.display = 'none';
+  }}
+}}
+
+function showMoreCompTitles() {{
+  _compTitleShown += 25;
+  renderCompTitles();
+}}
+window.filterCompTitles = filterCompTitles;
+window.showMoreCompTitles = showMoreCompTitles;
+
 // ── Title Pattern Analyzer ────────────────────────────────────
 function analyzeTitlePatterns() {{
   const lf = ALL_VIDEOS.filter(v => v.duration_minutes >= 5 && v.view_count > 0);
@@ -3640,6 +3762,7 @@ window.addEventListener('DOMContentLoaded', () => {{
   renderExperiments();
   renderRules();
   analyzeTitlePatterns();
+  filterCompTitles('7d', null);
 }});
 
 </script>
