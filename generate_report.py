@@ -262,7 +262,42 @@ def load_csv(filename="okstorytime_videos.csv"):
             row["duration_minutes"] = float(row["duration_minutes"] or 0)
             row["publish_year"]     = int(row["publish_year"] or 0)
             row["publish_month"]    = int(row["publish_month"] or 0)
+            # Defaults for studio analytics fields
+            row.setdefault("impressions", 0)
+            row.setdefault("ctr_pct", 0)
+            row.setdefault("watch_time_hours", 0)
+            row.setdefault("avg_view_minutes", 0)
+            row.setdefault("avg_pct_viewed", 0)
+            row.setdefault("estimated_revenue_usd", 0)
+            row.setdefault("rpm_usd", 0)
+            row.setdefault("cpm_usd", 0)
+            row.setdefault("subscribers_gained", 0)
             videos.append(row)
+
+    # Merge Studio analytics if available
+    studio_file = "okstorytime_studio_analytics.csv"
+    if os.path.exists(studio_file):
+        studio_map = {}
+        with open(studio_file, newline="", encoding="utf-8") as f:
+            for row in csv.DictReader(f):
+                studio_map[row["video_id"]] = row
+
+        matched = 0
+        for v in videos:
+            s = studio_map.get(v.get("video_id", ""))
+            if s:
+                v["impressions"]           = int(float(s.get("impressions", 0) or 0))
+                v["ctr_pct"]               = round(float(s.get("ctr_pct", 0) or 0), 2)
+                v["watch_time_hours"]      = round(float(s.get("watch_time_hours", 0) or 0), 1)
+                v["avg_view_minutes"]      = round(float(s.get("avg_view_minutes", 0) or 0), 1)
+                v["avg_pct_viewed"]        = round(float(s.get("avg_pct_viewed", 0) or 0), 1)
+                v["estimated_revenue_usd"] = round(float(s.get("estimated_revenue_usd", 0) or 0), 2)
+                v["rpm_usd"]               = round(float(s.get("rpm_usd", 0) or 0), 2)
+                v["cpm_usd"]               = round(float(s.get("cpm_usd", 0) or 0), 2)
+                v["subscribers_gained"]    = int(float(s.get("subscribers_gained", 0) or 0))
+                matched += 1
+        print(f"  Merged studio analytics for {matched}/{len(videos)} videos")
+
     return videos
 
 
@@ -293,6 +328,15 @@ def build(videos):
     by_views    = sorted(videos, key=lambda x: x["view_count"], reverse=True)
     total_views = sum(v["view_count"] for v in videos)
     avg_views   = total_views / len(videos)
+
+    # Studio analytics aggregates (CTR, revenue, impressions)
+    has_studio = any(v.get("impressions", 0) > 0 for v in videos)
+    lf_vids = [v for v in videos if v["duration_minutes"] >= 5]
+    lf_with_ctr = [v for v in lf_vids if v.get("ctr_pct", 0) > 0]
+    avg_ctr_lf = round(sum(v["ctr_pct"] for v in lf_with_ctr) / len(lf_with_ctr), 1) if lf_with_ctr else 0
+    total_revenue = sum(v.get("estimated_revenue_usd", 0) for v in videos)
+    total_impressions = sum(v.get("impressions", 0) for v in videos)
+    total_watch_hours = sum(v.get("watch_time_hours", 0) for v in videos)
 
     # Day of week (all time default)
     days = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"]
@@ -498,6 +542,45 @@ def build(videos):
 
     # Recent low performers (long-form 5+ min only)
     recent = sorted([v for v in videos if v["publish_year"] >= 2024 and v["duration_minutes"] >= 5], key=lambda x: x["view_count"])
+
+    # ── Studio Analytics table (CTR, Revenue, Impressions) ──────
+    studio_table_rows = ""
+    if has_studio:
+        lf_by_rev = sorted(lf_vids, key=lambda x: x.get("estimated_revenue_usd", 0), reverse=True)
+        for v in lf_by_rev[:25]:
+            title_short = v["title"][:55] + ("..." if len(v["title"]) > 55 else "")
+            views = v["view_count"]
+            ctr = v.get("ctr_pct", 0)
+            impr = v.get("impressions", 0)
+            rev = v.get("estimated_revenue_usd", 0)
+            rpm = v.get("rpm_usd", 0)
+            avd = v.get("avg_view_minutes", 0)
+            apv = v.get("avg_pct_viewed", 0)
+            ctr_cls = "green" if ctr >= 8 else ("red" if ctr < 4 else "")
+            rev_cls = "green" if rev >= 2000 else ""
+            studio_table_rows += f'''<tr>
+              <td style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="{v["title"]}">{title_short}</td>
+              <td class="num">{views:,}</td>
+              <td class="num">{impr:,}</td>
+              <td class="num {ctr_cls}">{ctr:.1f}%</td>
+              <td class="num">{avd:.0f}m</td>
+              <td class="num">{apv:.0f}%</td>
+              <td class="num {rev_cls}">${rev:,.0f}</td>
+              <td class="num">${rpm:.2f}</td>
+            </tr>'''
+
+        # CTR buckets for long-form
+        ctr_buckets = [
+            ("< 3%", 0, 3), ("3-5%", 3, 5), ("5-8%", 5, 8),
+            ("8-12%", 8, 12), ("12%+", 12, 100),
+        ]
+        ctr_bucket_rows = ""
+        for label, lo, hi in ctr_buckets:
+            bv = [v for v in lf_with_ctr if lo <= v["ctr_pct"] < hi]
+            if bv:
+                avg_v = sum(v["view_count"] for v in bv) / len(bv)
+                avg_rev = sum(v.get("estimated_revenue_usd", 0) for v in bv) / len(bv)
+                ctr_bucket_rows += f'<tr><td>{label}</td><td class="num">{len(bv)}</td><td class="num">{avg_v:,.0f}</td><td class="num">${avg_rev:,.0f}</td></tr>'
 
     # ── Shorts data ──────────────────────────────────────────────
     shorts_all       = [v for v in videos if v["duration_minutes"] < 2]
@@ -845,6 +928,12 @@ def build(videos):
         "publish_year": v["publish_year"],
         "title": v.get("title", ""),
         "publish_date": v.get("publish_date", ""),
+        "ctr": v.get("ctr_pct", 0),
+        "impressions": v.get("impressions", 0),
+        "revenue": v.get("estimated_revenue_usd", 0),
+        "rpm": v.get("rpm_usd", 0),
+        "watch_hours": v.get("watch_time_hours", 0),
+        "avg_pct_viewed": v.get("avg_pct_viewed", 0),
     } for v in videos])
 
     # Table builders
@@ -1120,6 +1209,44 @@ footer {{ text-align: center; color: var(--text-muted); font-size: .75rem; paddi
 .typing-dot:nth-child(2) {{ animation-delay: .2s; }}
 .typing-dot:nth-child(3) {{ animation-delay: .4s; }}
 @keyframes blink {{ 0%,80%,100%{{opacity:.2}} 40%{{opacity:1}} }}
+
+/* CTR & Revenue Badges on Thumbnails */
+.ctr-badge {{ display:inline-block; padding:1px 7px; border-radius:10px; font-size:.68rem; font-weight:700; }}
+.ctr-great {{ background:#dcfce7; color:#166534; }}
+.ctr-good {{ background:#dbeafe; color:#1e40af; }}
+.ctr-ok {{ background:#fef9c3; color:#854d0e; }}
+.ctr-low {{ background:#fecaca; color:#991b1b; }}
+.rev-badge {{ display:inline-block; padding:1px 7px; border-radius:10px; font-size:.68rem; font-weight:700; background:#f0fdf4; color:#166534; }}
+.impr-badge {{ display:inline-block; padding:1px 7px; border-radius:10px; font-size:.68rem; font-weight:600; background:#f3f4f6; color:#6b7280; }}
+
+/* Experiment Tracker */
+.exp-card {{ background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:16px; margin-bottom:12px; }}
+.exp-card .exp-title {{ font-weight:700; font-size:.9rem; margin-bottom:6px; }}
+.exp-card .exp-meta {{ font-size:.78rem; color:var(--text-muted); margin-bottom:8px; }}
+.exp-card .exp-hyp {{ font-size:.85rem; padding:10px 14px; background:var(--primary-bg); border-radius:8px; border-left:3px solid var(--primary); }}
+.exp-form {{ display:grid; gap:10px; }}
+.exp-form input, .exp-form textarea, .exp-form select {{ padding:8px 12px; border:1px solid var(--border); border-radius:8px; font-family:inherit; font-size:.85rem; background:var(--surface); color:var(--text); }}
+.exp-form textarea {{ resize:vertical; min-height:60px; }}
+.exp-list {{ display:flex; flex-direction:column; gap:10px; margin-top:14px; }}
+.score-ring {{ display:inline-flex; align-items:center; justify-content:center; width:52px; height:52px; border-radius:50%; font-weight:800; font-size:1.1rem; }}
+.score-high {{ background:#dcfce7; color:#166534; border:3px solid #22c55e; }}
+.score-mid {{ background:#fef9c3; color:#854d0e; border:3px solid #eab308; }}
+.score-low {{ background:#fecaca; color:#991b1b; border:3px solid #ef4444; }}
+
+/* CSV Upload */
+.upload-zone {{ border: 2px dashed var(--border-strong); border-radius: 14px; padding: 32px; text-align: center; cursor: pointer; transition: all .2s; background: var(--surface); }}
+.upload-zone:hover, .upload-zone.drag-over {{ border-color: var(--primary); background: var(--primary-bg); }}
+.upload-zone .upload-icon {{ font-size: 2.2rem; margin-bottom: 8px; }}
+.upload-zone .upload-text {{ font-size: .92rem; color: var(--text-muted); }}
+.upload-zone .upload-text strong {{ color: var(--primary); }}
+.upload-file-list {{ display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }}
+.upload-file-tag {{ display: inline-flex; align-items: center; gap: 6px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 5px 12px; font-size: .8rem; color: #166534; font-weight: 600; }}
+.upload-file-tag.pending {{ background: #fef9c3; border-color: #fde68a; color: #854d0e; }}
+.upload-status {{ margin-top: 14px; padding: 12px 16px; border-radius: 10px; font-size: .85rem; }}
+.upload-status.success {{ background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; }}
+.upload-status.error {{ background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }}
+#studio-results {{ display: none; }}
+#studio-results.visible {{ display: block; }}
 </style>
 </head>
 <body>
@@ -1137,8 +1264,8 @@ footer {{ text-align: center; color: var(--text-muted); font-size: .75rem; paddi
     <div class="hstat"><div class="val">{fmt(total_views)}</div><div class="lbl">Total Views</div></div>
     <div class="hstat"><div class="val">{fmt(avg_views)}</div><div class="lbl">Avg / Video</div></div>
     <div class="hstat"><div class="val">{len(videos):,}</div><div class="lbl">Videos</div></div>
-    <div class="hstat"><div class="val">Sunday</div><div class="lbl">Best Post Day</div></div>
-    <div class="hstat"><div class="val">60–90 min</div><div class="lbl">Best Format</div></div>
+    {"" if not has_studio else f'<div class="hstat"><div class="val">{avg_ctr_lf}%</div><div class="lbl">Avg CTR (LF)</div></div>'}
+    {"" if not has_studio else f'<div class="hstat"><div class="val">${total_revenue:,.0f}</div><div class="lbl">Total Revenue</div></div>'}
   </div>
 </div>
 
@@ -1152,6 +1279,7 @@ footer {{ text-align: center; color: var(--text-muted); font-size: .75rem; paddi
   <button class="nav-btn" onclick="show('competitors',this)">🏆 Competitors</button>
   <button class="nav-btn" onclick="show('shorts',this)">⚡ Shorts Strategy</button>
   <button class="nav-btn" onclick="show('tracker',this)">🚀 Launch Tracker</button>
+  <button class="nav-btn" onclick="show('experiments',this)">🧪 Experiments</button>
 </nav>
 
 
@@ -1172,7 +1300,7 @@ footer {{ text-align: center; color: var(--text-muted); font-size: .75rem; paddi
         <div class="insight green">✅ <strong>Long-form is still working.</strong> Long-form averaged 39,629 views in 2024. The format has proven, loyal audience demand.</div>
         <div class="insight green">✅ <strong>Sunday is your superpower.</strong> Sunday averages 46,649 views vs 15,035 on Wednesday — 3.1× difference purely from posting day.</div>
         <div class="insight green">✅ <strong>60–90 min compilations are your #1 format.</strong> 48,018 avg views — your highest-performing length bracket by far.</div>
-        <div class="insight green">✅ <strong>Your podcast is thriving.</strong> Apple Podcasts #5 Comedy in the US. That audience can convert to YouTube viewers.</div>
+        <div class="insight green">✅ <strong>Your podcast is thriving.</strong> Apple Podcasts #75 Comedy in the US. That audience can convert to YouTube viewers.</div>
       </div>
     </div>
   </div>
@@ -1419,7 +1547,7 @@ footer {{ text-align: center; color: var(--text-muted); font-size: .75rem; paddi
         <div style="font-size:.83rem;color:var(--text-muted);line-height:1.6">
           Started as a podcast, used YouTube as a distribution channel. iHeart distribution + TikTok clips → 875K YouTube subs and ~150K avg views per video.<br><br>
           <span style="color:var(--green)">✓ What worked:</span> Treated each platform differently. Podcast listeners ≠ YouTube viewers. Tailored content to each.<br><br>
-          <span style="color:var(--yellow)">→ OKStorytime parallel:</span> The podcast is at Apple #5 Comedy. That audience doesn't automatically watch YouTube. A direct "come watch us on YouTube" push could be a quick win.
+          <span style="color:var(--yellow)">→ OKStorytime parallel:</span> The podcast is at Apple #75 Comedy. That audience doesn't automatically watch YouTube. A direct "come watch us on YouTube" push could be a quick win.
         </div>
       </div>
     </div>
@@ -1467,12 +1595,19 @@ footer {{ text-align: center; color: var(--text-muted); font-size: .75rem; paddi
   </div>
   <div class="card">
     <div class="card-title">🏆 Top Performing Long-Form Thumbnails — Study These</div>
-    <p style="font-size:.84rem;color:var(--text-muted);margin-bottom:12px">True long-form only (5+ min horizontal) · tap a period to filter.</p>
-    <div id="thumb-filters" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
+    <p style="font-size:.84rem;color:var(--text-muted);margin-bottom:8px">True long-form only (5+ min horizontal). CTR badge color: <span class="ctr-badge ctr-great">12%+ Banger</span> <span class="ctr-badge ctr-good">8-12% Good</span> <span class="ctr-badge ctr-ok">4-8% OK</span> <span class="ctr-badge ctr-low">&lt;4% Weak</span></p>
+    <p style="font-size:.78rem;color:var(--text-muted);margin-bottom:12px">💡 <strong>Sam's rule:</strong> If CTR is 12%+ AND most traffic is Browse Features (not Shorts/Suggested), that's a thumbnail worth copying. Check traffic source in YouTube Studio > video > Reach tab.</p>
+    <div id="thumb-filters" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
       <button class="filter-btn active" onclick="filterThumbs('all',this)">Lifetime</button>
       {thumb_year_btns}
       <button class="filter-btn" onclick="filterThumbs('last30',this)">Last 30 Days</button>
       <button class="filter-btn" onclick="filterThumbs('last7',this)">Last 7 Days</button>
+    </div>
+    <div id="thumb-sort" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
+      <span style="font-size:.82rem;color:var(--text-muted);font-weight:600;padding:5px 0">Sort:</span>
+      <button class="filter-btn active" onclick="setThumbSort('views',this)">Most Views</button>
+      <button class="filter-btn" onclick="setThumbSort('ctr',this)">Highest CTR</button>
+      <button class="filter-btn" onclick="setThumbSort('revenue',this)">Most Revenue</button>
     </div>
     <div id="top-thumb-grid"></div>
   </div>
@@ -1494,11 +1629,80 @@ footer {{ text-align: center; color: var(--text-muted); font-size: .75rem; paddi
     <div id="comp-thumb-grid"></div>
   </div>
 
+  <!-- Thumbnail + Title Workshop -->
+  <div class="card" id="thumb-workshop">
+    <div class="card-title">🎨 Thumbnail + Title Workshop</div>
+    <p style="font-size:.82rem;color:var(--text-muted);margin:0 0 14px">Paste your story, and Claude will generate thumbnail concepts AND titles together — because they're one package. Uses your top-performing patterns + Sam's rules (12%+ CTR = banger, browse features = real wins).</p>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <textarea id="thumb-story-input" rows="4" placeholder="Paste the story summary here... e.g. 'A wife finds out her husband has been secretly sending money to his ex for 3 years. When she confronts him, his mom takes his side.'"
+        style="width:100%;padding:12px 14px;border:1px solid var(--border);border-radius:10px;font-family:inherit;font-size:.875rem;line-height:1.55;resize:vertical;background:var(--surface2);color:var(--text);outline:none;box-sizing:border-box"></textarea>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <button id="thumb-gen-btn" onclick="generateThumbConcepts()" style="background:var(--primary);color:#fff;border:none;border-radius:8px;padding:9px 20px;font-size:.875rem;font-weight:600;cursor:pointer">Generate Thumbnail + Title Combos ✨</button>
+        <span id="thumb-gen-status" style="font-size:.82rem;color:var(--text-muted)"></span>
+      </div>
+    </div>
+    <div id="thumb-results" style="display:none;margin-top:18px">
+      <div style="font-size:.75rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted);margin-bottom:10px">Thumbnail + Title Combos</div>
+      <div id="thumb-combos" style="display:flex;flex-direction:column;gap:12px;font-size:.9rem;line-height:1.6"></div>
+    </div>
+  </div>
+
 </div>
 
 
 <!-- ════════ ANALYTICS ════════ -->
 <div id="tab-analytics" class="tab">
+
+  <!-- CSV Upload -->
+  <div class="card" style="margin-top:22px">
+    <div class="card-title">📤 Upload YouTube Studio Data</div>
+    <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:14px">
+      Export from <strong>YouTube Studio > Analytics > Advanced Mode > Download</strong>, then drop the CSV files here.
+      Data is processed in your browser — nothing is uploaded to any server.
+    </p>
+    <div class="upload-zone" id="upload-zone"
+         ondragover="event.preventDefault();this.classList.add('drag-over')"
+         ondragleave="this.classList.remove('drag-over')"
+         ondrop="event.preventDefault();this.classList.remove('drag-over');handleCSVDrop(event.dataTransfer.files)"
+         onclick="document.getElementById('csv-file-input').click()">
+      <div class="upload-icon">📁</div>
+      <div class="upload-text">
+        <strong>Drop CSV files here</strong> or click to browse<br>
+        <span style="font-size:.78rem">Accepts: Table data.csv, Chart data.csv, Totals.csv</span>
+      </div>
+      <input type="file" id="csv-file-input" multiple accept=".csv,.CSV" style="display:none"
+             onchange="handleCSVDrop(this.files)">
+    </div>
+    <div class="upload-file-list" id="upload-file-list"></div>
+    <div id="upload-status"></div>
+  </div>
+
+  <!-- Studio results (populated by JS after upload) -->
+  <div id="studio-results">
+    <div class="card">
+      <div class="card-title">💰 Studio Analytics — Top Long-Form by Revenue</div>
+      <div id="studio-summary-line" style="font-size:.82rem;color:var(--text-muted);margin-bottom:12px"></div>
+      <div class="table-wrap"><table id="studio-table">
+        <tr><th>Title</th><th>Views</th><th>Impressions</th><th>CTR</th><th>Avg Duration</th><th>Avg % Viewed</th><th>Revenue</th><th>RPM</th></tr>
+      </table></div>
+    </div>
+    <div class="two-col">
+      <div class="card">
+        <div class="card-title">🎯 Views & Revenue by CTR Bucket (Long-Form)</div>
+        <div class="table-wrap"><table id="studio-ctr-table">
+          <tr><th>CTR Range</th><th>Videos</th><th>Avg Views</th><th>Avg Revenue</th></tr>
+        </table></div>
+      </div>
+      <div class="card">
+        <div class="card-title">📊 Key Studio Metrics (Long-Form)</div>
+        <div class="table-wrap"><table id="studio-metrics-table"></table></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">📈 Monthly Channel Engaged Views</div>
+      <div class="chart-container"><canvas id="studio-monthly-chart"></canvas></div>
+    </div>
+  </div>
 
   <!-- Day / Length filter -->
   <div class="filter-bar" style="margin-top:22px">
@@ -1551,6 +1755,45 @@ footer {{ text-align: center; color: var(--text-muted); font-size: .75rem; paddi
       &nbsp;·&nbsp; <strong>Auto-update:</strong> Re-run <code style="background:#f5f3ff;padding:1px 5px;border-radius:4px;color:var(--primary)">fetch_channel_data.py</code> then <code style="background:#f5f3ff;padding:1px 5px;border-radius:4px;color:var(--primary)">generate_report.py</code> to refresh this report.
     </p>
   </div>
+
+  {"" if not has_studio else f"""
+  <!-- Studio Analytics: Revenue & CTR -->
+  <div class="card">
+    <div class="card-title">💰 Studio Analytics — Top Long-Form by Revenue</div>
+    <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:12px">
+      Data from YouTube Studio export. {len(lf_with_ctr)} long-form videos with CTR data.
+      Avg CTR: <strong>{avg_ctr_lf}%</strong> &middot;
+      Total Revenue: <strong>${total_revenue:,.0f}</strong> &middot;
+      Total Impressions: <strong>{total_impressions:,}</strong> &middot;
+      Total Watch Hours: <strong>{total_watch_hours:,.0f}</strong>
+    </p>
+    <div class="table-wrap"><table>
+      <tr><th>Title</th><th>Views</th><th>Impressions</th><th>CTR</th><th>Avg Duration</th><th>Avg % Viewed</th><th>Revenue</th><th>RPM</th></tr>
+      {studio_table_rows}
+    </table></div>
+  </div>
+
+  <div class="two-col">
+    <div class="card">
+      <div class="card-title">🎯 Views & Revenue by CTR Bucket (Long-Form)</div>
+      <div class="table-wrap"><table>
+        <tr><th>CTR Range</th><th>Videos</th><th>Avg Views</th><th>Avg Revenue</th></tr>
+        {ctr_bucket_rows}
+      </table></div>
+    </div>
+    <div class="card">
+      <div class="card-title">📊 Key Studio Metrics (Long-Form)</div>
+      <div class="table-wrap"><table>
+        <tr><td>Avg CTR (long-form)</td><td class="num">{avg_ctr_lf}%</td></tr>
+        <tr><td>Total Revenue</td><td class="num">${total_revenue:,.0f}</td></tr>
+        <tr><td>Total Impressions</td><td class="num">{total_impressions:,}</td></tr>
+        <tr><td>Total Watch Hours</td><td class="num">{total_watch_hours:,.0f}</td></tr>
+        <tr><td>Avg Revenue / Video</td><td class="num">${total_revenue / max(len(lf_vids), 1):,.0f}</td></tr>
+        <tr><td>Avg RPM (long-form)</td><td class="num">${sum(v.get("rpm_usd", 0) for v in lf_with_ctr) / max(len(lf_with_ctr), 1):.2f}</td></tr>
+      </table></div>
+    </div>
+  </div>
+  """}
 
   <!-- Year table -->
   <div class="card">
@@ -1668,6 +1911,13 @@ footer {{ text-align: center; color: var(--text-muted); font-size: .75rem; paddi
     </div>
   </div>
 
+  <!-- Title Pattern Hypothesis Analyzer -->
+  <div class="card">
+    <div class="card-title">🔬 Title Pattern Analysis — What Structure Wins?</div>
+    <p style="font-size:.82rem;color:var(--text-muted);margin:0 0 14px">Auto-analyzed from your video data. Sam's question: "Is it better to say <em>I got tricked</em> or <em>they tricked me</em>?" Here's what your data says.</p>
+    <div id="title-patterns" class="two-col" style="gap:14px"></div>
+  </div>
+
   <div class="card" id="title-gen-card">
     <div class="card-title">✍️ Title Generator — Paste Your Story, Get 5–10 Titles</div>
     <p style="font-size:.83rem;color:var(--text-muted);margin:0 0 14px">Claude will generate titles tuned to your channel's proven patterns — using the keyword data above and your top-performing title formulas. Requires your Anthropic API key (saved in the Analytics tab).</p>
@@ -1741,7 +1991,7 @@ footer {{ text-align: center; color: var(--text-muted); font-size: .75rem; paddi
       <tr><td>MrBallen</td><td>10.7M</td><td>1–3M</td><td>Solo narrator, 28 min</td><td>Easter eggs force full watch-throughs, $343K–$475K/mo ads</td></tr>
       <tr><td>rSlash</td><td>1.95M</td><td>~50K</td><td>Audio narration</td><td>2,000+ video library, strong Patreon</td></tr>
       <tr><td>Two Hot Takes</td><td>875K</td><td>~150K</td><td>Multi-host reaction</td><td>Strong TikTok funnel (812K), iHeart distributed</td></tr>
-      <tr class="highlight-row"><td><strong>OKStorytime (you)</strong></td><td><strong>182K</strong></td><td><strong>~22K</strong></td><td><strong>4-host live show</strong></td><td><strong>Apple Podcasts #5 Comedy, iHeart distributed</strong></td></tr>
+      <tr class="highlight-row"><td><strong>OKStorytime (you)</strong></td><td><strong>182K</strong></td><td><strong>~22K</strong></td><td><strong>4-host live show</strong></td><td><strong>Apple Podcasts #75 Comedy, iHeart distributed</strong></td></tr>
       <tr><td>Comfort Level</td><td>176K YT</td><td>Unknown</td><td>Multi-host podcast</td><td>TikTok-first (812K followers)</td></tr>
       <tr><td>PRIVATE DIARY</td><td>750K</td><td>~30K</td><td>TTS/animated narration</td><td>Consistent aesthetic, faceless format</td></tr>
       <tr><td>Las Damitas Histeria 🇲🇽</td><td>355K YT / 13.4M TikTok</td><td>70K–150K (episodes)</td><td>2-host comedy podcast + clip machine</td><td>Franchise model: book, live touring, Patreon + Sonoro network</td></tr>
@@ -1802,7 +2052,7 @@ footer {{ text-align: center; color: var(--text-muted); font-size: .75rem; paddi
           <div>
             <div class="comp-section-label" style="color:var(--green)">What We're Doing Differently</div>
             <div class="insight green" style="margin-bottom:8px"><strong>Bigger TikTok presence.</strong> You have 1.1M TikTok followers vs their 812K. You're under-leveraging a larger platform.</div>
-            <div class="insight green"><strong>Apple Podcasts #5 Comedy.</strong> Your podcast is ranking higher than theirs despite fewer YouTube subs. The audio audience is loyal.</div>
+            <div class="insight green"><strong>Apple Podcasts #75 Comedy.</strong> Your podcast is ranking higher than theirs despite fewer YouTube subs. The audio audience is loyal.</div>
           </div>
         </div>
       </div>
@@ -1856,7 +2106,7 @@ footer {{ text-align: center; color: var(--text-muted); font-size: .75rem; paddi
           <div>
             <div class="comp-section-label" style="color:var(--green)">What We're Doing Differently</div>
             <div class="insight green" style="margin-bottom:8px"><strong>Larger YouTube subscriber base.</strong> You have more YouTube subs and a longer track record. Your library is a massive asset they don't have yet.</div>
-            <div class="insight green"><strong>Podcast distribution.</strong> Apple Podcasts #5 Comedy. They don't have comparable audio distribution.</div>
+            <div class="insight green"><strong>Podcast distribution.</strong> Apple Podcasts #75 Comedy. They don't have comparable audio distribution.</div>
           </div>
         </div>
       </div>
@@ -2095,6 +2345,88 @@ footer {{ text-align: center; color: var(--text-muted); font-size: .75rem; paddi
   </div>
 </div>
 
+<!-- ════════ EXPERIMENTS ════════ -->
+<div id="tab-experiments" class="tab">
+
+  <!-- 10K/48hr Scorecard -->
+  <div class="card" style="margin-top:22px">
+    <div class="card-title">🎯 10K in 48 Hours — Pre-Launch Scorecard</div>
+    <p style="font-size:.82rem;color:var(--text-muted);margin:0 0 14px">Score your next upload BEFORE it goes live. Based on patterns from your top-performing videos. Sam's north star: 12%+ CTR in the first hour = we're back.</p>
+    <div style="display:grid;grid-template-columns:1fr auto;gap:20px;align-items:start">
+      <div class="exp-form">
+        <input type="text" id="sc-title" placeholder="Working title for the video">
+        <input type="text" id="sc-story" placeholder="One-line story hook (e.g. 'Wife finds husband's Tinder while pregnant')">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <select id="sc-host"><option value="sam">Sam (solo)</option><option value="john">John (solo)</option><option value="both">Sam + John</option><option value="guest">With Guest</option></select>
+          <select id="sc-length"><option value="60-90">60-90 min (best)</option><option value="40-60">40-60 min</option><option value="20-40">20-40 min</option><option value="10-20">10-20 min</option><option value="90+">90+ min</option></select>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <select id="sc-day"><option value="Sunday">Sunday (best)</option><option value="Monday">Monday</option><option value="Tuesday">Tuesday</option><option value="Wednesday">Wednesday</option><option value="Thursday">Thursday</option><option value="Friday">Friday</option><option value="Saturday">Saturday</option></select>
+          <select id="sc-thumb"><option value="closeup">Close-up face (recommended)</option><option value="studio">Studio shot</option><option value="guest">Guest thumbnail</option><option value="text">Text-heavy</option><option value="karen">Karen/character style</option></select>
+        </div>
+        <div style="display:flex;gap:8px">
+          <label style="display:flex;align-items:center;gap:4px;font-size:.82rem"><input type="checkbox" id="sc-first-person" checked> First-person title ("I/My")</label>
+          <label style="display:flex;align-items:center;gap:4px;font-size:.82rem"><input type="checkbox" id="sc-twist"> Has unresolved twist</label>
+          <label style="display:flex;align-items:center;gap:4px;font-size:.82rem"><input type="checkbox" id="sc-relationship" checked> Relationship story</label>
+        </div>
+        <button onclick="scoreVideo()" style="background:var(--primary);color:#fff;border:none;border-radius:8px;padding:9px 20px;font-size:.875rem;font-weight:600;cursor:pointer;justify-self:start">Score This Video 🎯</button>
+      </div>
+      <div id="score-display" style="text-align:center;min-width:100px">
+        <div class="score-ring score-mid" style="font-size:1.4rem;width:70px;height:70px">?</div>
+        <div style="font-size:.75rem;color:var(--text-muted);margin-top:6px">Score / 100</div>
+      </div>
+    </div>
+    <div id="score-breakdown" style="display:none;margin-top:16px;padding:14px;background:var(--surface2);border-radius:10px;font-size:.85rem;line-height:1.65"></div>
+  </div>
+
+  <!-- A/B Test Experiment Tracker -->
+  <div class="card">
+    <div class="card-title">🧪 A/B Test Experiment Tracker</div>
+    <p style="font-size:.82rem;color:var(--text-muted);margin:0 0 14px">Log your thumbnail and title experiments here. Track what you changed, your hypothesis, and the result. Data saved in your browser.</p>
+
+    <div style="border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px;background:var(--surface2)">
+      <div style="font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--primary);margin-bottom:10px">New Experiment</div>
+      <div class="exp-form">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <input type="text" id="exp-video-url" placeholder="YouTube video URL or title">
+          <select id="exp-type"><option value="thumbnail">Thumbnail A/B Test</option><option value="title">Title A/B Test</option><option value="both">Thumbnail + Title</option></select>
+        </div>
+        <textarea id="exp-hypothesis" placeholder="Your hypothesis... e.g. 'I think first-person titles (I got tricked) will get higher CTR than third-person (She tricked him)'"></textarea>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <input type="text" id="exp-variant-a" placeholder="Variant A (current/control)">
+          <input type="text" id="exp-variant-b" placeholder="Variant B (new test)">
+        </div>
+        <input type="date" id="exp-start-date">
+        <button onclick="addExperiment()" style="background:var(--primary);color:#fff;border:none;border-radius:8px;padding:9px 20px;font-size:.875rem;font-weight:600;cursor:pointer;justify-self:start">Log Experiment 🧪</button>
+      </div>
+    </div>
+
+    <div style="font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin-bottom:10px">Active Experiments</div>
+    <div id="exp-list" class="exp-list">
+      <p style="color:var(--text-muted);font-size:.85rem">No experiments logged yet. Start by adding one above.</p>
+    </div>
+
+    <div style="font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin:20px 0 10px">Completed Experiments</div>
+    <div id="exp-completed" class="exp-list">
+      <p style="color:var(--text-muted);font-size:.85rem">Complete an experiment to see results here.</p>
+    </div>
+  </div>
+
+  <!-- Rules You've Discovered -->
+  <div class="card">
+    <div class="card-title">📏 Your Rules — What You've Proven Works</div>
+    <p style="font-size:.82rem;color:var(--text-muted);margin:0 0 14px">As you run experiments, add rules here. Sam said: "You should be creating rules constantly for what works, title and thumbnail wise, based on past data."</p>
+    <div id="rules-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px">
+      <p style="color:var(--text-muted);font-size:.85rem">No rules yet. Run experiments and add what you learn.</p>
+    </div>
+    <div style="display:flex;gap:8px">
+      <input type="text" id="new-rule" placeholder="e.g. First-person titles get 3x more CTR than third-person" style="flex:1;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:.85rem">
+      <button onclick="addRule()" style="background:var(--primary);color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:.85rem;font-weight:600;cursor:pointer">Add Rule</button>
+    </div>
+  </div>
+
+</div>
+
 <footer>Generated with Claude Code &nbsp;·&nbsp; OKStorytime YouTube Growth Report &nbsp;·&nbsp; {now}</footer>
 
 <script>
@@ -2283,25 +2615,42 @@ function drawChart(data) {{
 }}
 
 // ── Thumbnail filter ─────────────────────────────────────────────
-function filterThumbs(period, btn) {{
-  document.querySelectorAll('#thumb-filters .filter-btn').forEach(b => b.classList.remove('active'));
+let _thumbPeriod = 'all';
+let _thumbSort = 'views';
+
+function setThumbSort(sort, btn) {{
+  document.querySelectorAll('#thumb-sort .filter-btn').forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
+  _thumbSort = sort;
+  filterThumbs(_thumbPeriod, null);
+}}
+
+function filterThumbs(period, btn) {{
+  if (btn) {{
+    document.querySelectorAll('#thumb-filters .filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  }}
+  _thumbPeriod = period;
 
   const now = new Date();
   const longform = ALL_VIDEOS.filter(v => v.duration_minutes >= 5);
 
+  const sortFn = _thumbSort === 'ctr' ? ((a,b) => (b.ctr||0) - (a.ctr||0))
+               : _thumbSort === 'revenue' ? ((a,b) => (b.revenue||0) - (a.revenue||0))
+               : ((a,b) => b.view_count - a.view_count);
+
   let pool;
   if (period === 'all') {{
-    pool = [...longform].sort((a,b) => b.view_count - a.view_count);
+    pool = [...longform].sort(sortFn);
   }} else if (period === 'last7') {{
     const cut = new Date(now - 7*86400000).toISOString().slice(0,10);
-    pool = longform.filter(v => v.publish_date >= cut).sort((a,b) => b.view_count - a.view_count);
+    pool = longform.filter(v => v.publish_date >= cut).sort(sortFn);
   }} else if (period === 'last30') {{
     const cut = new Date(now - 30*86400000).toISOString().slice(0,10);
-    pool = longform.filter(v => v.publish_date >= cut).sort((a,b) => b.view_count - a.view_count);
+    pool = longform.filter(v => v.publish_date >= cut).sort(sortFn);
   }} else {{
     const yr = parseInt(period);
-    pool = longform.filter(v => v.publish_year === yr).sort((a,b) => b.view_count - a.view_count);
+    pool = longform.filter(v => v.publish_year === yr).sort(sortFn);
   }}
 
   const top18 = pool.filter(v => THUMB_DICT[v.video_id]).slice(0, 18);
@@ -2318,13 +2667,21 @@ function filterThumbs(period, btn) {{
                 : v.view_count >= 1000    ? Math.round(v.view_count/1000)+'K'
                 : v.view_count;
     const title = v.title.length > 45 ? v.title.slice(0,45)+'…' : v.title;
+    // CTR badge (from studio data)
+    const ctr = v.ctr || 0;
+    const ctrCls = ctr >= 12 ? 'ctr-great' : ctr >= 8 ? 'ctr-good' : ctr >= 4 ? 'ctr-ok' : 'ctr-low';
+    const ctrBadge = ctr > 0 ? '<span class="ctr-badge '+ctrCls+'">'+ctr.toFixed(1)+'% CTR</span>' : '';
+    // Revenue badge
+    const rev = v.revenue || 0;
+    const revBadge = rev > 0 ? '<span class="rev-badge">$'+Math.round(rev).toLocaleString()+'</span>' : '';
     return '<div class="thumb-item">'
       + '<a href="https://youtube.com/watch?v='+v.video_id+'" target="_blank">'
       + '<img src="data:image/jpeg;base64,'+THUMB_DICT[v.video_id]+'" alt="'+title+'" loading="lazy"></a>'
       + '<div class="thumb-label">'
       + '<strong>'+views+' views</strong>'
-      + '<div style="display:flex;gap:6px;margin:3px 0 4px;align-items:center">'
+      + '<div style="display:flex;gap:6px;margin:3px 0 4px;align-items:center;flex-wrap:wrap">'
       + '<span class="thumb-dur">'+Math.round(v.duration_minutes)+' min</span>'
+      + ctrBadge + revBadge
       + '<span style="font-size:.68rem;color:var(--text-muted)">'+v.publish_date+'</span>'
       + '</div><span>'+title+'</span></div></div>';
   }}).join('') + '</div>';
@@ -2692,6 +3049,599 @@ filterTitles('all', null);
   window.askChip = askChip;
   window.generateTitles = generateTitles;
 }})();
+
+// ── CSV Upload & Studio Analytics ────────────────────────────
+function parseCSVLine(line) {{
+  const result = []; let cur = ''; let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {{
+    const ch = line[i];
+    if (ch === '"') {{ inQuotes = !inQuotes; }}
+    else if (ch === ',' && !inQuotes) {{ result.push(cur.trim()); cur = ''; }}
+    else {{ cur += ch; }}
+  }}
+  result.push(cur.trim());
+  return result;
+}}
+
+function parseCSV(text) {{
+  const lines = text.split(/\\r?\\n/).filter(l => l.trim());
+  if (lines.length < 2) return [];
+  const headers = parseCSVLine(lines[0]);
+  const rows = [];
+  for (let i = 1; i < lines.length; i++) {{
+    const vals = parseCSVLine(lines[i]);
+    const obj = {{}};
+    headers.forEach((h, j) => obj[h] = vals[j] || '');
+    rows.push(obj);
+  }}
+  return rows;
+}}
+
+function parseNum(v) {{
+  if (!v) return 0;
+  return parseFloat(v.replace(/[,$%]/g, '')) || 0;
+}}
+
+function parseDuration(s) {{
+  if (!s) return 0;
+  const parts = s.split(':').map(Number);
+  if (parts.length === 3) return parts[0] * 60 + parts[1] + parts[2] / 60;
+  if (parts.length === 2) return parts[0] + parts[1] / 60;
+  return parts[0] / 60;
+}}
+
+let studioChart = null;
+
+function handleCSVDrop(files) {{
+  const fileList = document.getElementById('upload-file-list');
+  const status = document.getElementById('upload-status');
+  fileList.innerHTML = '';
+  status.innerHTML = '';
+
+  const fileMap = {{}};
+  Array.from(files).forEach(f => {{
+    const name = f.name;
+    fileMap[name] = f;
+    const tag = document.createElement('span');
+    tag.className = 'upload-file-tag pending';
+    tag.textContent = name;
+    tag.id = 'ftag-' + name.replace(/[^a-zA-Z0-9]/g, '_');
+    fileList.appendChild(tag);
+  }});
+
+  const readers = Array.from(files).map(f => {{
+    return new Promise((resolve) => {{
+      const reader = new FileReader();
+      reader.onload = () => resolve({{ name: f.name, text: reader.result }});
+      reader.readAsText(f);
+    }});
+  }});
+
+  Promise.all(readers).then(results => {{
+    let tableData = null, chartData = null, totalsData = null;
+
+    results.forEach(r => {{
+      const tag = document.getElementById('ftag-' + r.name.replace(/[^a-zA-Z0-9]/g, '_'));
+      const rows = parseCSV(r.text);
+
+      if (r.name.toLowerCase().includes('table') && rows.length > 0 && rows[0]['Video title']) {{
+        tableData = rows.filter(row => row['Content'] !== 'Total');
+        if (tag) {{ tag.className = 'upload-file-tag'; tag.textContent = r.name + ' (' + tableData.length + ' videos)'; }}
+      }} else if (r.name.toLowerCase().includes('chart') && rows.length > 0 && rows[0]['Content']) {{
+        chartData = rows;
+        if (tag) {{ tag.className = 'upload-file-tag'; tag.textContent = r.name + ' (' + rows.length + ' rows)'; }}
+      }} else if (r.name.toLowerCase().includes('total')) {{
+        totalsData = rows;
+        if (tag) {{ tag.className = 'upload-file-tag'; tag.textContent = r.name + ' (' + rows.length + ' rows)'; }}
+      }} else {{
+        if (tag) {{ tag.className = 'upload-file-tag'; tag.textContent = r.name + ' (auto-detected)'; }}
+        // Try to auto-detect
+        if (rows.length > 0) {{
+          if (rows[0]['Video title'] && rows[0]['Impressions']) {{ tableData = rows.filter(row => row['Content'] !== 'Total'); }}
+          else if (rows[0]['Content'] && rows[0]['Engaged views'] && rows[0]['Date']) {{ chartData = rows; }}
+          else if (rows[0]['Date'] && rows[0]['Engaged views'] && !rows[0]['Content']) {{ totalsData = rows; }}
+        }}
+      }}
+    }});
+
+    if (tableData) {{
+      renderStudioTable(tableData);
+      // Save to localStorage
+      localStorage.setItem('studio_table_data', JSON.stringify(tableData));
+    }}
+    if (totalsData) {{
+      renderMonthlyChart(totalsData);
+      localStorage.setItem('studio_totals_data', JSON.stringify(totalsData));
+    }}
+
+    const loaded = [tableData ? 'Table data' : null, chartData ? 'Chart data' : null, totalsData ? 'Totals' : null].filter(Boolean);
+    if (loaded.length > 0) {{
+      status.innerHTML = '<div class="upload-status success">Loaded: ' + loaded.join(', ') + '. Data saved in your browser for next visit.</div>';
+      document.getElementById('studio-results').classList.add('visible');
+    }} else {{
+      status.innerHTML = '<div class="upload-status error">Could not detect YouTube Studio CSV format. Make sure you export from Advanced Mode.</div>';
+    }}
+  }});
+}}
+
+function renderStudioTable(rows) {{
+  // Parse and filter to long-form (5+ min)
+  const videos = rows.map(r => ({{
+    title: r['Video title'] || '',
+    video_id: r['Content'] || '',
+    views: parseNum(r['Views']),
+    impressions: parseNum(r['Impressions']),
+    ctr: parseNum(r['Impressions click-through rate (%)']),
+    avg_dur: parseDuration(r['Average view duration']),
+    avg_pct: parseNum(r['Average percentage viewed (%)']),
+    revenue: parseNum(r['Estimated revenue (USD)']),
+    rpm: parseNum(r['RPM (USD)']),
+    duration_sec: parseNum(r['Duration']),
+    duration_min: parseNum(r['Duration']) / 60,
+  }})).filter(v => v.title);
+
+  const longform = videos.filter(v => v.duration_min >= 5);
+  const withCtr = longform.filter(v => v.ctr > 0);
+  const avgCtr = withCtr.length ? (withCtr.reduce((s, v) => s + v.ctr, 0) / withCtr.length).toFixed(1) : '0';
+  const totalRev = videos.reduce((s, v) => s + v.revenue, 0);
+  const totalImpr = videos.reduce((s, v) => s + v.impressions, 0);
+  const totalHours = rows.reduce((s, r) => s + parseNum(r['Watch time (hours)']), 0);
+  const avgRpm = withCtr.length ? (withCtr.reduce((s, v) => s + v.rpm, 0) / withCtr.length).toFixed(2) : '0';
+
+  // Summary line
+  document.getElementById('studio-summary-line').innerHTML =
+    withCtr.length + ' long-form videos with CTR data. ' +
+    'Avg CTR: <strong>' + avgCtr + '%</strong> · ' +
+    'Total Revenue: <strong>$' + totalRev.toLocaleString('en-US', {{maximumFractionDigits: 0}}) + '</strong> · ' +
+    'Total Impressions: <strong>' + totalImpr.toLocaleString() + '</strong> · ' +
+    'Total Watch Hours: <strong>' + Math.round(totalHours).toLocaleString() + '</strong>';
+
+  // Top 25 by revenue
+  const topByRev = [...longform].sort((a, b) => b.revenue - a.revenue).slice(0, 25);
+  const tbody = topByRev.map(v => {{
+    const ctrCls = v.ctr >= 8 ? 'green' : (v.ctr < 4 ? 'red' : '');
+    const revCls = v.revenue >= 2000 ? 'green' : '';
+    const tShort = v.title.length > 55 ? v.title.slice(0, 55) + '...' : v.title;
+    return '<tr>' +
+      '<td style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + v.title.replace(/"/g, '&quot;') + '">' + tShort + '</td>' +
+      '<td class="num">' + v.views.toLocaleString() + '</td>' +
+      '<td class="num">' + v.impressions.toLocaleString() + '</td>' +
+      '<td class="num ' + ctrCls + '">' + v.ctr.toFixed(1) + '%</td>' +
+      '<td class="num">' + Math.round(v.avg_dur) + 'm</td>' +
+      '<td class="num">' + Math.round(v.avg_pct) + '%</td>' +
+      '<td class="num ' + revCls + '">$' + Math.round(v.revenue).toLocaleString() + '</td>' +
+      '<td class="num">$' + v.rpm.toFixed(2) + '</td></tr>';
+  }}).join('');
+
+  const table = document.getElementById('studio-table');
+  table.innerHTML = '<tr><th>Title</th><th>Views</th><th>Impressions</th><th>CTR</th><th>Avg Duration</th><th>Avg % Viewed</th><th>Revenue</th><th>RPM</th></tr>' + tbody;
+
+  // CTR buckets
+  const buckets = [[' < 3%', 0, 3], ['3-5%', 3, 5], ['5-8%', 5, 8], ['8-12%', 8, 12], ['12%+', 12, 100]];
+  const ctrRows = buckets.map(([label, lo, hi]) => {{
+    const bv = withCtr.filter(v => v.ctr >= lo && v.ctr < hi);
+    if (!bv.length) return '';
+    const avgV = Math.round(bv.reduce((s, v) => s + v.views, 0) / bv.length);
+    const avgR = Math.round(bv.reduce((s, v) => s + v.revenue, 0) / bv.length);
+    return '<tr><td>' + label + '</td><td class="num">' + bv.length + '</td><td class="num">' + avgV.toLocaleString() + '</td><td class="num">$' + avgR.toLocaleString() + '</td></tr>';
+  }}).join('');
+  document.getElementById('studio-ctr-table').innerHTML = '<tr><th>CTR Range</th><th>Videos</th><th>Avg Views</th><th>Avg Revenue</th></tr>' + ctrRows;
+
+  // Key metrics
+  document.getElementById('studio-metrics-table').innerHTML =
+    '<tr><td>Avg CTR (long-form)</td><td class="num">' + avgCtr + '%</td></tr>' +
+    '<tr><td>Total Revenue</td><td class="num">$' + Math.round(totalRev).toLocaleString() + '</td></tr>' +
+    '<tr><td>Total Impressions</td><td class="num">' + totalImpr.toLocaleString() + '</td></tr>' +
+    '<tr><td>Total Watch Hours</td><td class="num">' + Math.round(totalHours).toLocaleString() + '</td></tr>' +
+    '<tr><td>Avg Revenue / Video</td><td class="num">$' + Math.round(totalRev / Math.max(longform.length, 1)).toLocaleString() + '</td></tr>' +
+    '<tr><td>Avg RPM (long-form)</td><td class="num">$' + avgRpm + '</td></tr>';
+
+  // Update header stats
+  const headerStats = document.querySelector('.header-stats');
+  if (headerStats) {{
+    // Remove old studio stats if any
+    headerStats.querySelectorAll('.studio-stat').forEach(el => el.remove());
+    headerStats.innerHTML += '<div class="hstat studio-stat"><div class="val">' + avgCtr + '%</div><div class="lbl">Avg CTR (LF)</div></div>';
+    headerStats.innerHTML += '<div class="hstat studio-stat"><div class="val">$' + Math.round(totalRev).toLocaleString() + '</div><div class="lbl">Total Revenue</div></div>';
+  }}
+}}
+
+function renderMonthlyChart(rows) {{
+  const monthly = {{}};
+  rows.forEach(r => {{
+    const date = r['Date'] || '';
+    const views = parseNum(r['Engaged views']);
+    if (date) {{
+      const month = date.slice(0, 7);
+      monthly[month] = (monthly[month] || 0) + views;
+    }}
+  }});
+
+  const labels = Object.keys(monthly).sort();
+  const data = labels.map(k => monthly[k]);
+
+  const canvas = document.getElementById('studio-monthly-chart');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+
+  if (studioChart) studioChart.destroy();
+  if (typeof Chart !== 'undefined') {{
+    studioChart = new Chart(ctx, {{
+      type: 'bar',
+      data: {{
+        labels: labels.map(l => {{
+          const [y, m] = l.split('-');
+          return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][parseInt(m)-1] + ' ' + y;
+        }}),
+        datasets: [{{ label: 'Engaged Views', data: data, backgroundColor: 'rgba(124,58,237,.5)', borderColor: 'rgba(124,58,237,1)', borderWidth: 1 }}]
+      }},
+      options: {{
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {{ y: {{ beginAtZero: true, ticks: {{ callback: v => v >= 1000000 ? (v/1000000).toFixed(1)+'M' : v >= 1000 ? (v/1000).toFixed(0)+'K' : v }} }} }},
+        plugins: {{ legend: {{ display: false }} }}
+      }}
+    }});
+  }}
+}}
+
+// Load saved studio data on page load
+window.addEventListener('DOMContentLoaded', () => {{
+  const saved = localStorage.getItem('studio_table_data');
+  const savedTotals = localStorage.getItem('studio_totals_data');
+  if (saved) {{
+    try {{
+      renderStudioTable(JSON.parse(saved));
+      document.getElementById('studio-results').classList.add('visible');
+    }} catch(e) {{}}
+  }}
+  if (savedTotals) {{
+    try {{ renderMonthlyChart(JSON.parse(savedTotals)); }} catch(e) {{}}
+  }}
+}});
+
+window.handleCSVDrop = handleCSVDrop;
+
+// ── Title Pattern Analyzer ────────────────────────────────────
+function analyzeTitlePatterns() {{
+  const lf = ALL_VIDEOS.filter(v => v.duration_minutes >= 5 && v.view_count > 0);
+  if (lf.length < 10) return;
+
+  const patterns = [
+    {{
+      name: 'First-Person ("I/My") vs Third-Person ("She/He/They")',
+      testA: v => /^(I |My |I\'m |I\'ve )/i.test(v.title),
+      labelA: 'First-person (I/My...)',
+      testB: v => /^(She |He |They |Her |His )/i.test(v.title),
+      labelB: 'Third-person (She/He...)',
+    }},
+    {{
+      name: 'With "Reddit" vs Without',
+      testA: v => /reddit/i.test(v.title),
+      labelA: 'Has "Reddit" in title',
+      testB: v => !/reddit/i.test(v.title),
+      labelB: 'No "Reddit" in title',
+    }},
+    {{
+      name: 'Question Title vs Statement',
+      testA: v => /\?/.test(v.title),
+      labelA: 'Question (has ?)',
+      testB: v => !/\?/.test(v.title) && !/\|/.test(v.title),
+      labelB: 'Statement (no ?)',
+    }},
+    {{
+      name: 'Has Ellipsis/Cliffhanger (...) vs Clean End',
+      testA: v => /\.\.\.|\u2026/.test(v.title),
+      labelA: 'Has ... (cliffhanger)',
+      testB: v => !/\.\.\.|\u2026/.test(v.title),
+      labelB: 'Clean ending',
+    }},
+    {{
+      name: 'Has Pipe Separator (|) vs No Separator',
+      testA: v => /\|/.test(v.title),
+      labelA: 'Has | separator',
+      testB: v => !/\|/.test(v.title),
+      labelB: 'No separator',
+    }},
+    {{
+      name: 'ALL CAPS Word vs No Caps',
+      testA: v => /\b[A-Z]{{3,}}\b/.test(v.title),
+      labelA: 'Has CAPS word',
+      testB: v => !/\b[A-Z]{{3,}}\b/.test(v.title),
+      labelB: 'No caps word',
+    }},
+  ];
+
+  const container = document.getElementById('title-patterns');
+  if (!container) return;
+
+  container.innerHTML = patterns.map(p => {{
+    const groupA = lf.filter(p.testA);
+    const groupB = lf.filter(p.testB);
+    if (groupA.length < 3 || groupB.length < 3) return '';
+
+    const avgA = Math.round(groupA.reduce((s,v) => s + v.view_count, 0) / groupA.length);
+    const avgB = Math.round(groupB.reduce((s,v) => s + v.view_count, 0) / groupB.length);
+    const ctrA = groupA.filter(v=>v.ctr>0);
+    const ctrB = groupB.filter(v=>v.ctr>0);
+    const avgCtrA = ctrA.length ? (ctrA.reduce((s,v)=>s+v.ctr,0)/ctrA.length).toFixed(1) : 'N/A';
+    const avgCtrB = ctrB.length ? (ctrB.reduce((s,v)=>s+v.ctr,0)/ctrB.length).toFixed(1) : 'N/A';
+    const winner = avgA > avgB ? 'A' : 'B';
+    const pct = Math.round(Math.abs(avgA - avgB) / Math.min(avgA, avgB) * 100);
+
+    return '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px">'
+      + '<div style="font-weight:700;font-size:.85rem;margin-bottom:10px">' + p.name + '</div>'
+      + '<table style="width:100%;font-size:.82rem"><tr><th></th><th>Videos</th><th>Avg Views</th><th>Avg CTR</th></tr>'
+      + '<tr style="'+(winner==='A'?'background:#f0fdf4':'')+'">'
+      + '<td>'+(winner==='A'?'✅ ':'')+p.labelA+'</td>'
+      + '<td class="num">'+groupA.length+'</td><td class="num">'+avgA.toLocaleString()+'</td><td class="num">'+avgCtrA+'%</td></tr>'
+      + '<tr style="'+(winner==='B'?'background:#f0fdf4':'')+'">'
+      + '<td>'+(winner==='B'?'✅ ':'')+p.labelB+'</td>'
+      + '<td class="num">'+groupB.length+'</td><td class="num">'+avgB.toLocaleString()+'</td><td class="num">'+avgCtrB+'%</td></tr>'
+      + '</table>'
+      + '<div style="font-size:.78rem;color:var(--primary);font-weight:600;margin-top:8px">'
+      + (winner==='A'?p.labelA:p.labelB) + ' wins by ' + pct + '% more views</div></div>';
+  }}).join('');
+}}
+
+// ── 10K/48hr Scorecard ────────────────────────────────────────
+function scoreVideo() {{
+  const title = document.getElementById('sc-title').value;
+  const host = document.getElementById('sc-host').value;
+  const length = document.getElementById('sc-length').value;
+  const day = document.getElementById('sc-day').value;
+  const thumb = document.getElementById('sc-thumb').value;
+  const firstPerson = document.getElementById('sc-first-person').checked;
+  const twist = document.getElementById('sc-twist').checked;
+  const relationship = document.getElementById('sc-relationship').checked;
+
+  let score = 0;
+  const breakdown = [];
+
+  // Host (from data: Sam/John solo performs best)
+  if (host === 'sam' || host === 'john') {{ score += 20; breakdown.push('+20 Sam or John solo (proven top performers)'); }}
+  else if (host === 'both') {{ score += 15; breakdown.push('+15 Sam + John (good but solo often better)'); }}
+  else {{ score += 5; breakdown.push('+5 Guest episode (Sam says no guests on Wednesday)'); }}
+
+  // Length
+  if (length === '60-90') {{ score += 20; breakdown.push('+20 60-90 min (your best-performing length)'); }}
+  else if (length === '40-60') {{ score += 15; breakdown.push('+15 40-60 min (solid length)'); }}
+  else if (length === '20-40') {{ score += 10; breakdown.push('+10 20-40 min (decent)'); }}
+  else {{ score += 5; breakdown.push('+5 Other length'); }}
+
+  // Day
+  if (day === 'Sunday') {{ score += 15; breakdown.push('+15 Sunday (your best day)'); }}
+  else if (day === 'Wednesday' || day === 'Saturday') {{ score += 10; breakdown.push('+10 ' + day + ' (good day)'); }}
+  else {{ score += 5; breakdown.push('+5 ' + day); }}
+
+  // Thumbnail style
+  if (thumb === 'closeup') {{ score += 15; breakdown.push('+15 Close-up face (highest CTR style)'); }}
+  else if (thumb === 'studio') {{ score += 10; breakdown.push('+10 Studio shot'); }}
+  else if (thumb === 'karen') {{ score += 8; breakdown.push('+8 Karen style (test this!)'); }}
+  else {{ score += 3; breakdown.push('+3 ' + thumb + ' (not ideal)'); }}
+
+  // Title patterns
+  if (firstPerson) {{ score += 10; breakdown.push('+10 First-person title (I/My)'); }}
+  else {{ score += 3; breakdown.push('+3 Not first-person'); }}
+  if (twist) {{ score += 10; breakdown.push('+10 Unresolved twist (creates curiosity gap)'); }}
+  if (relationship) {{ score += 10; breakdown.push('+10 Relationship story (your audience loves these)'); }}
+
+  // Cap at 100
+  score = Math.min(score, 100);
+
+  const display = document.getElementById('score-display');
+  const cls = score >= 75 ? 'score-high' : score >= 50 ? 'score-mid' : 'score-low';
+  display.innerHTML = '<div class="score-ring ' + cls + '" style="font-size:1.4rem;width:70px;height:70px">' + score + '</div>'
+    + '<div style="font-size:.75rem;color:var(--text-muted);margin-top:6px">'
+    + (score >= 75 ? 'Strong candidate for 10K!' : score >= 50 ? 'Has potential — optimize weak areas' : 'Needs work before launch')
+    + '</div>';
+
+  const bd = document.getElementById('score-breakdown');
+  bd.style.display = 'block';
+  bd.innerHTML = '<strong>Score breakdown for: ' + (title || 'Untitled') + '</strong><br><br>'
+    + breakdown.map(b => '• ' + b).join('<br>')
+    + '<br><br><strong style="color:var(--primary)">Total: ' + score + '/100</strong>'
+    + (score < 75 ? '<br><span style="color:var(--text-muted);font-size:.82rem">Tip: Optimize the lowest-scoring areas before publishing.</span>' : '');
+}}
+window.scoreVideo = scoreVideo;
+
+// ── Experiment Tracker (localStorage) ─────────────────────────
+function getExperiments() {{
+  try {{ return JSON.parse(localStorage.getItem('okst_experiments') || '[]'); }}
+  catch(e) {{ return []; }}
+}}
+function saveExperiments(exps) {{ localStorage.setItem('okst_experiments', JSON.stringify(exps)); }}
+
+function addExperiment() {{
+  const video = document.getElementById('exp-video-url').value.trim();
+  const type = document.getElementById('exp-type').value;
+  const hypothesis = document.getElementById('exp-hypothesis').value.trim();
+  const varA = document.getElementById('exp-variant-a').value.trim();
+  const varB = document.getElementById('exp-variant-b').value.trim();
+  const startDate = document.getElementById('exp-start-date').value || new Date().toISOString().slice(0,10);
+
+  if (!video || !hypothesis) {{ alert('Fill in the video and hypothesis.'); return; }}
+
+  const exps = getExperiments();
+  exps.push({{
+    id: Date.now(),
+    video, type, hypothesis, varA, varB,
+    startDate,
+    status: 'active',
+    result: '',
+    winner: '',
+    createdAt: new Date().toISOString()
+  }});
+  saveExperiments(exps);
+
+  // Clear form
+  document.getElementById('exp-video-url').value = '';
+  document.getElementById('exp-hypothesis').value = '';
+  document.getElementById('exp-variant-a').value = '';
+  document.getElementById('exp-variant-b').value = '';
+
+  renderExperiments();
+}}
+
+function completeExperiment(id) {{
+  const exps = getExperiments();
+  const exp = exps.find(e => e.id === id);
+  if (!exp) return;
+
+  const winner = prompt('Which variant won? (A or B)');
+  if (!winner) return;
+  const result = prompt('What did you learn? (Brief result)');
+
+  exp.status = 'completed';
+  exp.winner = winner.toUpperCase();
+  exp.result = result || '';
+  exp.completedAt = new Date().toISOString();
+  saveExperiments(exps);
+  renderExperiments();
+}}
+
+function deleteExperiment(id) {{
+  if (!confirm('Delete this experiment?')) return;
+  const exps = getExperiments().filter(e => e.id !== id);
+  saveExperiments(exps);
+  renderExperiments();
+}}
+
+function renderExperiments() {{
+  const exps = getExperiments();
+  const active = exps.filter(e => e.status === 'active');
+  const completed = exps.filter(e => e.status === 'completed');
+
+  const activeEl = document.getElementById('exp-list');
+  const completedEl = document.getElementById('exp-completed');
+  if (!activeEl || !completedEl) return;
+
+  if (active.length === 0) {{
+    activeEl.innerHTML = '<p style="color:var(--text-muted);font-size:.85rem">No active experiments. Start one above.</p>';
+  }} else {{
+    activeEl.innerHTML = active.map(e => '<div class="exp-card">'
+      + '<div class="exp-title">' + _esc(e.video) + ' <span style="background:var(--primary-bg);color:var(--primary);padding:2px 8px;border-radius:6px;font-size:.72rem;font-weight:700">' + e.type + '</span></div>'
+      + '<div class="exp-meta">Started: ' + e.startDate + '</div>'
+      + '<div class="exp-hyp">' + _esc(e.hypothesis) + '</div>'
+      + (e.varA ? '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;font-size:.82rem"><div style="padding:8px;background:var(--surface2);border-radius:6px"><strong>A:</strong> ' + _esc(e.varA) + '</div><div style="padding:8px;background:var(--surface2);border-radius:6px"><strong>B:</strong> ' + _esc(e.varB) + '</div></div>' : '')
+      + '<div style="display:flex;gap:8px;margin-top:10px">'
+      + '<button onclick="completeExperiment(' + e.id + ')" style="background:var(--green);color:#fff;border:none;border-radius:6px;padding:5px 14px;font-size:.8rem;cursor:pointer;font-weight:600">Complete & Log Result</button>'
+      + '<button onclick="deleteExperiment(' + e.id + ')" style="background:none;border:1px solid var(--border);border-radius:6px;padding:5px 14px;font-size:.8rem;cursor:pointer;color:var(--text-muted)">Delete</button>'
+      + '</div></div>').join('');
+  }}
+
+  if (completed.length === 0) {{
+    completedEl.innerHTML = '<p style="color:var(--text-muted);font-size:.85rem">No completed experiments yet.</p>';
+  }} else {{
+    completedEl.innerHTML = completed.map(e => '<div class="exp-card" style="border-left:3px solid var(--green)">'
+      + '<div class="exp-title">' + _esc(e.video) + ' <span style="background:#dcfce7;color:#166534;padding:2px 8px;border-radius:6px;font-size:.72rem;font-weight:700">COMPLETED</span> <span style="background:var(--primary-bg);color:var(--primary);padding:2px 8px;border-radius:6px;font-size:.72rem;font-weight:700">' + e.type + '</span></div>'
+      + '<div class="exp-meta">Ran: ' + e.startDate + ' → ' + (e.completedAt||'').slice(0,10) + '</div>'
+      + '<div class="exp-hyp">' + _esc(e.hypothesis) + '</div>'
+      + '<div style="margin-top:8px;font-size:.85rem"><strong>Winner: Variant ' + e.winner + '</strong></div>'
+      + (e.result ? '<div style="margin-top:4px;font-size:.85rem;color:var(--text-muted)">' + _esc(e.result) + '</div>' : '')
+      + '<div style="margin-top:8px"><button onclick="deleteExperiment(' + e.id + ')" style="background:none;border:1px solid var(--border);border-radius:6px;padding:4px 12px;font-size:.78rem;cursor:pointer;color:var(--text-muted)">Delete</button></div>'
+      + '</div>').join('');
+  }}
+}}
+window.addExperiment = addExperiment;
+window.completeExperiment = completeExperiment;
+window.deleteExperiment = deleteExperiment;
+
+// ── Rules Tracker (localStorage) ──────────────────────────────
+function getRules() {{
+  try {{ return JSON.parse(localStorage.getItem('okst_rules') || '[]'); }}
+  catch(e) {{ return []; }}
+}}
+function saveRules(rules) {{ localStorage.setItem('okst_rules', JSON.stringify(rules)); }}
+
+function addRule() {{
+  const input = document.getElementById('new-rule');
+  const text = input.value.trim();
+  if (!text) return;
+  const rules = getRules();
+  rules.push({{ text, createdAt: new Date().toISOString() }});
+  saveRules(rules);
+  input.value = '';
+  renderRules();
+}}
+function deleteRule(idx) {{
+  const rules = getRules();
+  rules.splice(idx, 1);
+  saveRules(rules);
+  renderRules();
+}}
+function renderRules() {{
+  const rules = getRules();
+  const el = document.getElementById('rules-list');
+  if (!el) return;
+  if (rules.length === 0) {{
+    el.innerHTML = '<p style="color:var(--text-muted);font-size:.85rem">No rules yet. Run experiments and add what you learn.</p>';
+    return;
+  }}
+  el.innerHTML = rules.map((r, i) => '<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--surface);border:1px solid var(--border);border-radius:8px;border-left:3px solid var(--green)">'
+    + '<span style="font-size:.85rem;flex:1">' + _esc(r.text) + '</span>'
+    + '<span style="font-size:.72rem;color:var(--text-muted)">' + r.createdAt.slice(0,10) + '</span>'
+    + '<button onclick="deleteRule(' + i + ')" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:.85rem">✕</button></div>').join('');
+}}
+window.addRule = addRule;
+window.deleteRule = deleteRule;
+
+// ── Thumbnail + Title Workshop (Claude API) ───────────────────
+async function generateThumbConcepts() {{
+  const story = document.getElementById('thumb-story-input').value.trim();
+  if (!story) {{ alert('Paste a story summary first.'); return; }}
+  const key = localStorage.getItem('claude_api_key');
+  if (!key) {{ alert('Save your Anthropic API key in the Analytics tab first.'); return; }}
+
+  const btn = document.getElementById('thumb-gen-btn');
+  const status = document.getElementById('thumb-gen-status');
+  btn.disabled = true;
+  status.textContent = 'Generating...';
+
+  // Build context from top videos
+  const topVids = ALL_VIDEOS.filter(v => v.duration_minutes >= 5 && v.ctr > 0)
+    .sort((a,b) => b.ctr - a.ctr).slice(0, 20)
+    .map(v => v.ctr.toFixed(1) + '% CTR | ' + v.view_count + ' views | ' + v.title).join('\\n');
+
+  const systemPrompt = 'You are a YouTube thumbnail + title expert for OKStorytime, a Reddit story reaction channel.'
+    + '\\n\\nChannel rules (from Sam, the manager):'
+    + '\\n- Thumbnail: extreme close-up of Sam or John, purple/blue studio, mouth open shocked, eyes wide'
+    + '\\n- No guests in thumbnails, no red backgrounds, no cluttered UI'
+    + '\\n- Title: first-person drama + unresolved twist. "I got tricked into marriage" beats "Parents trick daughter"'
+    + '\\n- 12%+ CTR in first hour = banger. We want 10K views in 48 hours.'
+    + '\\n- Relationship stories perform best'
+    + '\\n\\nTop 20 videos by CTR:\\n' + topVids
+    + '\\n\\nGenerate 5 thumbnail + title combos. For each:'
+    + '\\n1. TITLE (using proven patterns)'
+    + '\\n2. THUMBNAIL DESCRIPTION (specific: who, expression, background color, text overlay if any)'
+    + '\\n3. WHY IT WORKS (1 sentence referencing data)'
+    + '\\nFormat each as a numbered block.';
+
+  try {{
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {{
+      method: 'POST',
+      headers: {{ 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' }},
+      body: JSON.stringify({{ model: 'claude-sonnet-4-20250514', max_tokens: 1500, system: systemPrompt, messages: [{{ role: 'user', content: 'Story: ' + story }}] }})
+    }});
+    const data = await resp.json();
+    const text = data.content?.[0]?.text || 'No response';
+    document.getElementById('thumb-results').style.display = 'block';
+    document.getElementById('thumb-combos').innerHTML = text.replace(/\\n/g, '<br>');
+    status.textContent = '';
+  }} catch(e) {{
+    status.textContent = 'Error: ' + e.message;
+  }}
+  btn.disabled = false;
+}}
+window.generateThumbConcepts = generateThumbConcepts;
+
+// ── Init experiments + rules + patterns on load ───────────────
+window.addEventListener('DOMContentLoaded', () => {{
+  renderExperiments();
+  renderRules();
+  analyzeTitlePatterns();
+}});
+
 </script>
 </body>
 </html>"""

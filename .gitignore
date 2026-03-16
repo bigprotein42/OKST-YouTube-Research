@@ -12,3 +12,10 @@ yt_cookies.txt
 
 # Generated analysis data
 transcript_analysis.json
+okstorytime_studio_analytics.csv
+okstorytime_monthly_analytics.csv
+okstorytime_video_analytics.csv
+
+# Studio exports (may contain revenue data)
+studio_exports/*.csv
+studio_exports/*.CSV

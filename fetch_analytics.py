@@ -2,6 +2,8 @@
 Fetch deep YouTube Analytics for OKStorytime using OAuth token.
 Pulls: watch time, CTR, impressions, revenue per video.
 Saves to okstorytime_analytics.csv
+
+Scopes: youtube.readonly + yt-analytics.readonly (both READ-ONLY)
 """
 
 import csv
@@ -62,7 +64,7 @@ def fetch_video_analytics(youtube_analytics, start_date, end_date):
 
 
 def fetch_video_titles(youtube_data, video_ids):
-    """Get titles for video IDs using YouTube Data API."""
+    """Get titles for video IDs using YouTube Data API v3 (read-only)."""
     titles = {}
     for i in range(0, len(video_ids), 50):
         batch = video_ids[i:i+50]
@@ -80,31 +82,28 @@ def fetch_video_titles(youtube_data, video_ids):
 
 
 def main():
-    print("Authenticating...")
+    print("Authenticating (youtube.readonly + yt-analytics.readonly)...")
     creds = get_credentials()
 
     youtube_analytics = build("youtubeAnalytics", "v2", credentials=creds)
     youtube_data      = build("youtube", "v3", credentials=creds)
 
     today      = datetime.today()
-    # Monthly queries need end date = last day of a completed month
     first_of_month = today.replace(day=1)
     last_month_end = first_of_month - timedelta(days=1)
     end_date   = last_month_end.strftime("%Y-%m-%d")
-    # Video-level queries can use today
     end_date_daily = today.strftime("%Y-%m-%d")
     start_date = "2022-01-01"
 
     # ── Monthly channel analytics ────────────────────────────────
     print("Fetching monthly channel analytics...")
     monthly = fetch_channel_analytics(youtube_analytics, start_date, end_date)
-    # Aggregate daily rows into monthly buckets
     monthly_map = {}
     if "rows" in monthly:
         headers = [h["name"] for h in monthly["columnHeaders"]]
         for row in monthly["rows"]:
             d = dict(zip(headers, row))
-            month_key = d["day"][:7]  # YYYY-MM
+            month_key = d["day"][:7]
             if month_key not in monthly_map:
                 monthly_map[month_key] = {"month": month_key, "views": 0, "estimatedMinutesWatched": 0}
             monthly_map[month_key]["views"]                   += int(d.get("views", 0))
@@ -128,9 +127,9 @@ def main():
         for row in video_data["rows"]:
             video_rows.append(dict(zip(headers, row)))
 
-    # Enrich with titles
+    # Enrich with titles via Data API v3 (read-only)
     if video_rows:
-        print("  Fetching video titles...")
+        print("  Fetching video titles via Data API v3 (read-only)...")
         ids = [r["video"] for r in video_rows]
         titles = fetch_video_titles(youtube_data, ids)
         for r in video_rows:
@@ -138,10 +137,8 @@ def main():
             r["title"]        = meta.get("title", "")
             r["published_at"] = meta.get("published_at", "")
             r["duration"]     = meta.get("duration", "")
-            # Human-readable CTR
             ctr = r.get("impressionClickThroughRate", 0)
             r["ctr_pct"] = round(float(ctr) * 100, 2) if ctr else 0
-            # Avg view duration in minutes
             avd = r.get("averageViewDuration", 0)
             r["avg_view_minutes"] = round(float(avd) / 60, 1) if avd else 0
 

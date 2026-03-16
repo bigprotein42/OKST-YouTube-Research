@@ -1,6 +1,8 @@
 """
 One-time OAuth authorization script.
 Run this once to generate token.json — after that everything is automatic.
+
+SCOPES: Both read-only — cannot modify, upload, or delete anything.
 """
 
 import json
@@ -31,7 +33,9 @@ def main():
             f.write(creds.to_json())
 
     print("\n✅ Authorization successful! token.json saved.")
-    print("   You can now run fetch_channel_data.py and generate_report.py as normal.")
+    print("   Scopes: youtube.readonly + yt-analytics.readonly")
+    print("   Both are READ-ONLY — cannot modify, upload, or delete anything.")
+    print("   You can now run fetch_analytics.py to pull analytics data.")
     print("   token.json auto-refreshes — you won't need to do this again.")
 
 if __name__ == "__main__":
