@@ -1336,7 +1336,7 @@ footer {{ text-align: center; color: var(--text-muted); font-size: .75rem; paddi
         <div style="font-size:.7rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--green);margin-bottom:8px">✓ Wins</div>
         <div class="insight green">✅ <strong>Long-form is still working.</strong> Long-form averaged 39,629 views in 2024. The format has proven, loyal audience demand.</div>
         <div class="insight green">✅ <strong>Sunday is your superpower.</strong> Sunday averages 46,649 views vs 15,035 on Wednesday — 3.1× difference purely from posting day.</div>
-        <div class="insight green">✅ <strong>60–90 min compilations are your #1 format.</strong> 48,018 avg views — your highest-performing length bracket by far.</div>
+        <div class="insight green">✅ <strong>60–90 min long-form is your sweet spot.</strong> 48,018 avg views — your highest-performing length bracket by far.</div>
         <div class="insight green">✅ <strong>Your podcast is thriving.</strong> Apple Podcasts #75 Comedy in the US. That audience can convert to YouTube viewers.</div>
       </div>
     </div>
@@ -1404,7 +1404,7 @@ footer {{ text-align: center; color: var(--text-muted); font-size: .75rem; paddi
     <div class="card-title">🚀 5-Step Action Plan to Recover Views</div>
     <div class="insight green" style="margin-bottom:12px"><strong>Step 1 — Cut long-form upload volume immediately</strong><br>Target: 3–5 long-form videos/week max. Fewer, higher-quality uploads = more views per video. Every extra upload dilutes your best content's reach. (For Shorts advice, see the ⚡ Shorts Strategy tab.)</div>
     <div class="insight green" style="margin-bottom:12px"><strong>Step 2 — Make Sunday your flagship drop</strong><br>Sunday averages 46,649 views — 3.1× better than Wednesday. Best episode of the week goes live Sunday. Try a consistent time: 10am–12pm ET.</div>
-    <div class="insight green" style="margin-bottom:12px"><strong>Step 3 — Rebuild around 60–90 min compilations</strong><br>Your highest-avg format (48,018 views). Use: <span class="tag g">MEGA</span><span class="tag g">weekly recap</span><span class="tag g">compilation</span><span class="tag g">truth</span><span class="tag g">reaction</span><br>Structure: 3–4 stories per episode, 15–20 min each, timestamps in description.</div>
+    <div class="insight green" style="margin-bottom:12px"><strong>Step 3 — Target 60–90 min episodes</strong><br>Your highest-avg format (48,018 views). Structure: 3–4 stories per episode, 15–20 min each, timestamps in description. First-person drama titles on every upload.</div>
     <div class="insight green" style="margin-bottom:12px"><strong>Step 4 — Fix the thumbnail formula</strong><br><span class="tag g">Sam or John only</span><span class="tag g">extreme close-up (face fills 80%+)</span><span class="tag g">consistent studio background</span><span class="tag g">mouth open, shocked expression</span><span class="tag g">direct eye contact with camera</span><br><span class="tag r">no guests</span><span class="tag r">no red background</span><span class="tag r">no profile/side shots</span><span class="tag r">no livestream screenshots</span></div>
     <div class="insight green" style="margin-bottom:12px"><strong>Step 5 — Lead titles with the story, not the host</strong><br><span class="tag g">Drama-first</span>: "My husband BONED his co-worker" → 1.9M views<br><span class="tag r">Host-first</span>: "Denise reacts to..." → consistently bottom 25%</div>
     <div class="insight yellow"><strong>⚡ Phase 2 — Get Sam's OAuth access for deeper data</strong><br>Unlocks: watch time per video, audience retention curves, CTR per thumbnail, revenue per video. Ask Sam to connect the channel owner Google account. This will give 10× more precise recommendations.</div>
@@ -1453,33 +1453,27 @@ footer {{ text-align: center; color: var(--text-muted); font-size: .75rem; paddi
   </div>
 
   <div class="card">
-    <div class="card-title">📉 MEGA Episode Title Decline — What Changed</div>
-    <p style="font-size:.83rem;color:var(--text-muted);margin:0 0 12px">Your MEGA compilations averaged 102K in 2023 but dropped to 30K in 2025. The format still works — the titles stopped working.</p>
-    <div class="table-wrap"><table>
-      <tr><th>Year</th><th>Videos</th><th>Avg Views</th><th>Best Performer</th></tr>
-      <tr><td>2023</td><td>20</td><td style="color:var(--green);font-weight:700">101,944</td><td>He "did it" with BOTH HER BOYFRIENDS | Reddit MEGA — 203K</td></tr>
-      <tr><td>2024</td><td>2</td><td style="font-weight:700">88,046</td><td>3 Hours of Bridezillas destroying their own wedding — 90K</td></tr>
-      <tr><td>2025</td><td>22</td><td style="color:var(--red);font-weight:700">29,723</td><td>The most INSANE wedding stories — 92K</td></tr>
-    </table></div>
+    <div class="card-title">📊 Title Pattern: First-Person vs Generic — What the Data Shows</div>
+    <p style="font-size:.83rem;color:var(--text-muted);margin:0 0 12px">First-person drama titles consistently outperform generic or third-person framing across the channel's entire history.</p>
 
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px">
       <div>
-        <div style="font-size:.75rem;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">2023 Titles That Worked (avg 102K)</div>
+        <div style="font-size:.75rem;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">First-Person Titles That Win</div>
+        <div class="insight green" style="margin-bottom:6px;font-size:.82rem">My Husband BONED his Co-Worker… You Won't Believe — <strong>1.9M</strong></div>
         <div class="insight green" style="margin-bottom:6px;font-size:.82rem">He "did it" with BOTH HER BOYFRIENDS — <strong>203K</strong></div>
-        <div class="insight green" style="margin-bottom:6px;font-size:.82rem">My Husband BONED his Co-Worker… You Won't Believe — <strong>173K</strong></div>
         <div class="insight green" style="margin-bottom:6px;font-size:.82rem">Blackmailing my Stepdad… With His TINDER? — <strong>160K</strong></div>
-        <p style="font-size:.8rem;color:var(--text-muted);margin-top:8px"><strong>Pattern:</strong> First-person shock statement, specific dramatic action, implies a twist</p>
+        <p style="font-size:.8rem;color:var(--text-muted);margin-top:8px"><strong>Pattern:</strong> First-person shock statement, specific dramatic action, implies a twist, unresolved tension</p>
       </div>
       <div>
-        <div style="font-size:.75rem;font-weight:700;color:var(--red);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">2025 Titles That Flopped (avg 30K)</div>
-        <div class="insight red" style="margin-bottom:6px;font-size:.82rem">Leave the animals alone! | Reddit MEGA — <strong>11K</strong></div>
+        <div style="font-size:.75rem;font-weight:700;color:var(--red);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Generic/Vague Titles That Flop</div>
+        <div class="insight red" style="margin-bottom:6px;font-size:.82rem">Leave the animals alone! — <strong>11K</strong></div>
         <div class="insight red" style="margin-bottom:6px;font-size:.82rem">Friends that are as real as the Nigerian Prince… — <strong>16K</strong></div>
         <div class="insight red" style="margin-bottom:6px;font-size:.82rem">when grandma's will causes world war III — <strong>17K</strong></div>
         <p style="font-size:.8rem;color:var(--text-muted);margin-top:8px"><strong>Pattern:</strong> Generic category labels, no specific story hook, no first-person voice, tries to be clever instead of dramatic</p>
       </div>
     </div>
 
-    <div class="insight yellow" style="margin-top:12px"><strong>The fix:</strong> Stop titling MEGAs with category names ("Roommates," "Pranksters," "Families"). Start titling them with the BEST story in the compilation: "She found her husband's second family on Facebook | 3-Hour MEGA." Lead with drama, tag MEGA at the end — not the other way around.</div>
+    <div class="insight yellow" style="margin-top:12px"><strong>The rule:</strong> Every title should lead with the most dramatic moment from the story in first-person: "My boss demanded I work on my wedding day… so I quit live on Zoom." Specific beats vague. Drama beats clever. First-person ("My/I") beats third-person ("She/He") by a wide margin.</div>
   </div>
 
   <div class="card">
@@ -1538,7 +1532,7 @@ footer {{ text-align: center; color: var(--text-muted); font-size: .75rem; paddi
     <div class="card-title">📋 Weekly Content Schedule Template</div>
     <div class="table-wrap"><table>
       <tr><th>Day</th><th>Content</th><th>Format</th><th>Why</th></tr>
-      <tr class="highlight-row"><td><strong>Sunday ⭐</strong></td><td>Weekly Mega Recap / Compilation</td><td>60–90 min</td><td>Best day (46,649 avg) + best format (48,018 avg)</td></tr>
+      <tr class="highlight-row"><td><strong>Sunday ⭐</strong></td><td>Flagship long-form episode</td><td>60–90 min</td><td>Best day (46,649 avg) + best format (48,018 avg)</td></tr>
       <tr><td>Tuesday</td><td>Single story deep-dive</td><td>40–60 min</td><td>36,157 avg for this length</td></tr>
       <tr><td>Thursday</td><td>Hot take / audience debate</td><td>40–60 min</td><td>Good mid-week, 19,575 avg Thursday</td></tr>
       <tr><td>Optional</td><td>1 Short — only if genuinely viral-worthy</td><td>&lt;60 sec</td><td>De-prioritize for now</td></tr>
@@ -1591,7 +1585,7 @@ footer {{ text-align: center; color: var(--text-muted); font-size: .75rem; paddi
 
     <div class="insight yellow" style="margin-top:4px">
       <strong>The universal pattern across every comeback:</strong> Cut volume → pick one flagship format → be consistent for 90 days → make the change public so your existing audience knows to re-engage.
-      Based on OKStorytime's data, the target is <strong>Sunday 60–90 min compilations, 3 videos/week max, purple studio, Sam or John only</strong>. Give it 90 days of strict adherence before evaluating.
+      Based on OKStorytime's data, the target is <strong>Sunday 60–90 min flagship episodes, 3 videos/week max, purple studio, Sam or John only, first-person drama titles</strong>. Give it 90 days of strict adherence before evaluating.
     </div>
   </div>
 </div>
@@ -1896,7 +1890,7 @@ footer {{ text-align: center; color: var(--text-muted); font-size: .75rem; paddi
           <tr><th>Keyword</th><th>How much more common</th></tr>
           {kw_rows(top_kw, "+", "var(--green)")}
         </table></div>
-        <p style="font-size:.82rem;color:var(--text-muted);margin-top:10px">Use: <span class="tag g">mega</span><span class="tag g">weekly</span><span class="tag g">recap</span><span class="tag g">compilation</span><span class="tag g">truth</span><span class="tag g">dark</span><span class="tag g">reaction</span></p>
+        <p style="font-size:.82rem;color:var(--text-muted);margin-top:10px">Use: <span class="tag g">truth</span><span class="tag g">dark</span><span class="tag g">reaction</span><span class="tag g">hours</span><span class="tag g">proposed</span><span class="tag g">abandoned</span><span class="tag g">secret</span></p>
       </div>
       <div>
         <h3 style="color:var(--red);margin-bottom:12px;font-size:.85rem;font-weight:700">❌ Words in your BOTTOM 25% of videos</h3>
@@ -1990,36 +1984,63 @@ footer {{ text-align: center; color: var(--text-muted); font-size: .75rem; paddi
 
   <!-- Long-form sub-tab -->
   <div id="video-sub-longform">
-    <!-- Livestream filter -->
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
-      <span style="font-size:.82rem;color:var(--text-muted);font-weight:600">Filter:</span>
-      <button class="live-filter-btn active" onclick="filterLiveRows(this,'all')" style="padding:5px 14px;border:1px solid var(--border);border-radius:20px;background:var(--primary);color:#fff;font-size:.8rem;cursor:pointer;font-family:inherit;font-weight:600">All</button>
-      <button class="live-filter-btn" onclick="filterLiveRows(this,'hide')" style="padding:5px 14px;border:1px solid var(--border);border-radius:20px;background:var(--surface);color:var(--text-muted);font-size:.8rem;cursor:pointer;font-family:inherit;font-weight:600">Hide Livestreams</button>
+    <!-- Filters row -->
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+      <span style="font-size:.82rem;color:var(--text-muted);font-weight:600">Time:</span>
+      <button class="vid-time-btn active" onclick="setVidTime('all',this)" style="padding:5px 14px;border:1px solid var(--border);border-radius:20px;background:var(--primary);color:#fff;font-size:.8rem;cursor:pointer;font-family:inherit;font-weight:600">All Time</button>
+      <button class="vid-time-btn" onclick="setVidTime('year',this)" style="padding:5px 14px;border:1px solid var(--border);border-radius:20px;background:var(--surface);color:var(--text-muted);font-size:.8rem;cursor:pointer;font-family:inherit;font-weight:600">Last Year</button>
+      <button class="vid-time-btn" onclick="setVidTime('30d',this)" style="padding:5px 14px;border:1px solid var(--border);border-radius:20px;background:var(--surface);color:var(--text-muted);font-size:.8rem;cursor:pointer;font-family:inherit;font-weight:600">Last 30 Days</button>
+      <button class="vid-time-btn" onclick="setVidTime('7d',this)" style="padding:5px 14px;border:1px solid var(--border);border-radius:20px;background:var(--surface);color:var(--text-muted);font-size:.8rem;cursor:pointer;font-family:inherit;font-weight:600">Last 7 Days</button>
+      <span style="width:1px;height:20px;background:var(--border);margin:0 4px"></span>
+      <span style="font-size:.82rem;color:var(--text-muted);font-weight:600">Livestreams:</span>
+      <button class="live-filter-btn active" onclick="filterLiveRows(this,'hide')" style="padding:5px 14px;border:1px solid var(--border);border-radius:20px;background:var(--primary);color:#fff;font-size:.8rem;cursor:pointer;font-family:inherit;font-weight:600">Hide</button>
+      <button class="live-filter-btn" onclick="filterLiveRows(this,'all')" style="padding:5px 14px;border:1px solid var(--border);border-radius:20px;background:var(--surface);color:var(--text-muted);font-size:.8rem;cursor:pointer;font-family:inherit;font-weight:600">Show All</button>
       <button class="live-filter-btn" onclick="filterLiveRows(this,'only')" style="padding:5px 14px;border:1px solid var(--border);border-radius:20px;background:var(--surface);color:var(--text-muted);font-size:.8rem;cursor:pointer;font-family:inherit;font-weight:600">Livestreams Only</button>
     </div>
     <div class="card">
       <div class="card-title">🏆 Top 20 Long-Form Videos (5+ min)</div>
-      <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:10px">Sorted by all-time views. These are your proven formats — click any title to watch.</p>
-      <div class="table-wrap">{make_video_table(top_longform)}</div>
+      <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:10px">Sorted by views within the selected time period — click any title to watch.</p>
+      <div class="table-wrap" id="lf-top-table"></div>
     </div>
     <div class="card">
-      <div class="card-title">⚠️ Lowest Performing Long-Form (2024+)</div>
-      <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:10px">Long-form videos from 2024 onward with fewest views. Study what went wrong.</p>
-      <div class="table-wrap">{make_video_table(bot_longform, "red")}</div>
+      <div class="card-title">⚠️ Lowest Performing Long-Form</div>
+      <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:10px">Long-form videos with fewest views in the selected period. Study what went wrong.</p>
+      <div class="table-wrap" id="lf-bot-table"></div>
+    </div>
+
+    <!-- Video Analysis Chat Bot -->
+    <div class="card" style="margin-top:6px">
+      <div class="card-title">🤖 Video Analysis Bot</div>
+      <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:12px">Ask questions about your videos: "Why did this title work?", "Compare my Sunday vs Wednesday uploads", "What do my top 10 have in common?"</p>
+      <div class="chat-messages" id="vid-chat-messages" style="min-height:120px;max-height:360px;overflow-y:auto;display:flex;flex-direction:column;gap:12px;padding:4px 0 16px">
+        <div class="chat-bubble assistant">I can analyze your {len(videos):,} videos. Ask me things like:<br>• "Why did my top videos work?"<br>• "Compare these two titles"<br>• "What day should I upload?"<br>• "What topics get the most views?"<br><br>Add your API key in the Analytics tab to get started.</div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <input type="text" id="vid-chat-input" placeholder="Ask about your videos..." style="flex:1;padding:10px 14px;border:1px solid var(--border);border-radius:10px;background:var(--surface);color:var(--text);font-size:.875rem;font-family:inherit" onkeydown="if(event.key==='Enter')askVideoBot()">
+        <button onclick="askVideoBot()" style="padding:10px 20px;background:var(--primary);color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;font-family:inherit;font-size:.85rem">Ask</button>
+      </div>
     </div>
   </div>
 
   <!-- Shorts sub-tab -->
   <div id="video-sub-shorts" style="display:none">
-    <div class="card">
-      <div class="card-title">⚡ Top 20 Shorts of All Time</div>
-      <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:10px">Every top Short is from 2022–2023. The algorithm that made these work no longer exists.</p>
-      <div class="table-wrap">{make_video_table(top_shorts_vd)}</div>
+    <!-- Shorts time filter -->
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
+      <span style="font-size:.82rem;color:var(--text-muted);font-weight:600">Time:</span>
+      <button class="shorts-time-btn active" onclick="setShortsTime('all',this)" style="padding:5px 14px;border:1px solid var(--border);border-radius:20px;background:var(--primary);color:#fff;font-size:.8rem;cursor:pointer;font-family:inherit;font-weight:600">All Time</button>
+      <button class="shorts-time-btn" onclick="setShortsTime('year',this)" style="padding:5px 14px;border:1px solid var(--border);border-radius:20px;background:var(--surface);color:var(--text-muted);font-size:.8rem;cursor:pointer;font-family:inherit;font-weight:600">Last Year</button>
+      <button class="shorts-time-btn" onclick="setShortsTime('30d',this)" style="padding:5px 14px;border:1px solid var(--border);border-radius:20px;background:var(--surface);color:var(--text-muted);font-size:.8rem;cursor:pointer;font-family:inherit;font-weight:600">Last 30 Days</button>
+      <button class="shorts-time-btn" onclick="setShortsTime('7d',this)" style="padding:5px 14px;border:1px solid var(--border);border-radius:20px;background:var(--surface);color:var(--text-muted);font-size:.8rem;cursor:pointer;font-family:inherit;font-weight:600">Last 7 Days</button>
     </div>
     <div class="card">
-      <div class="card-title">⚠️ Lowest Performing Shorts (2024+)</div>
-      <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:10px">Recent Shorts that aren't working. Mostly livestream clips, subreddit-tagged, or random fragments.</p>
-      <div class="table-wrap">{make_video_table(bot_shorts_vd, "red")}</div>
+      <div class="card-title">⚡ Top 20 Shorts</div>
+      <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:10px">Top Shorts by views in the selected time period.</p>
+      <div class="table-wrap" id="shorts-top-table"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">⚠️ Lowest Performing Shorts</div>
+      <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:10px">Shorts with fewest views in the selected period.</p>
+      <div class="table-wrap" id="shorts-bot-table"></div>
     </div>
   </div>
 </div>
@@ -2779,23 +2800,212 @@ function filterTitles(period, btn) {{
   if (botEl) botEl.innerHTML = bot15.length ? bot15.map(v => titleRow(v,'var(--red)')).join('')   : '<p style="color:var(--text-muted);font-size:.85rem">No videos found for this period.</p>';
 }}
 
-// ── Video sub-tabs ───────────────────────────────────────────────
+// ── Video tables (dynamic) ───────────────────────────────────────
+let _vidTimePeriod = 'all';
+let _vidLiveMode = 'hide';
+let _shortsTimePeriod = 'all';
+
+function _isLive(v) {{
+  const t = (v.title || '').toLowerCase();
+  return t.includes('\\uD83D\\uDD34') || t.includes('stream') || t.slice(0,20).includes('live');
+}}
+
+function _dateCutoff(period) {{
+  const now = Date.now();
+  if (period === '7d')   return new Date(now - 7*86400000).toISOString().slice(0,10);
+  if (period === '30d')  return new Date(now - 30*86400000).toISOString().slice(0,10);
+  if (period === 'year') return new Date(now - 365*86400000).toISOString().slice(0,10);
+  return '1900-01-01';
+}}
+
+function _renderVideoTable(videos, color) {{
+  if (!videos.length) return '<p style="color:var(--text-muted);font-size:.85rem">No videos found for this period.</p>';
+  let html = '<table><tr><th>#</th><th>Title</th><th>Views</th><th>Length</th><th>Date</th><th>Day</th></tr>';
+  videos.forEach((v, i) => {{
+    const dur = v.dur || v.duration_minutes || 0;
+    const durBadge = dur < 2
+      ? '<span class="badge short">Short</span>'
+      : '<span class="badge long">' + Math.round(dur) + 'm</span>';
+    const numCls = color ? 'num ' + color : 'num';
+    const title = (v.title || '').slice(0, 80);
+    const url = 'https://youtube.com/watch?v=' + v.video_id;
+    const day = (v.d || '').slice(0, 3);
+    html += '<tr><td class="rank">' + (i+1) + '</td>'
+      + '<td><a href="' + url + '" target="_blank">' + _esc(title) + '</a></td>'
+      + '<td class="' + numCls + '">' + fmtK(v.view_count || v.v || 0) + '</td>'
+      + '<td>' + durBadge + '</td>'
+      + '<td class="muted">' + (v.publish_date || '') + '</td>'
+      + '<td class="muted">' + day + '</td></tr>';
+  }});
+  html += '</table>';
+  return html;
+}}
+
+function renderLFTables() {{
+  const cutoff = _dateCutoff(_vidTimePeriod);
+  let pool = ALL_VIDEOS.filter(v => (v.dur || 0) >= 5 && (v.publish_date || '') >= cutoff);
+
+  // Apply livestream filter
+  if (_vidLiveMode === 'hide') pool = pool.filter(v => !_isLive(v));
+  else if (_vidLiveMode === 'only') pool = pool.filter(v => _isLive(v));
+
+  const top20 = [...pool].sort((a,b) => (b.v||0) - (a.v||0)).slice(0, 20);
+  const bot20 = [...pool].sort((a,b) => (a.v||0) - (b.v||0)).slice(0, 20);
+
+  document.getElementById('lf-top-table').innerHTML = _renderVideoTable(top20, '');
+  document.getElementById('lf-bot-table').innerHTML = _renderVideoTable(bot20, 'red');
+}}
+
+function setVidTime(period, btn) {{
+  _vidTimePeriod = period;
+  document.querySelectorAll('.vid-time-btn').forEach(b => {{
+    b.style.background = 'var(--surface)'; b.style.color = 'var(--text-muted)'; b.style.borderColor = 'var(--border)';
+  }});
+  if (btn) {{ btn.style.background = 'var(--primary)'; btn.style.color = '#fff'; btn.style.borderColor = 'var(--primary)'; }}
+  renderLFTables();
+}}
+
 function filterLiveRows(btn, mode) {{
+  _vidLiveMode = mode;
   document.querySelectorAll('.live-filter-btn').forEach(b => {{
-    b.style.background = 'var(--surface)';
-    b.style.color = 'var(--text-muted)';
-    b.style.borderColor = 'var(--border)';
+    b.style.background = 'var(--surface)'; b.style.color = 'var(--text-muted)'; b.style.borderColor = 'var(--border)';
   }});
-  btn.style.background = 'var(--primary)';
-  btn.style.color = '#fff';
-  btn.style.borderColor = 'var(--primary)';
-  const container = document.getElementById('video-sub-longform');
-  container.querySelectorAll('tbody tr').forEach(row => {{
-    const isLive = row.dataset.live === '1';
-    if (mode === 'all') row.style.display = '';
-    else if (mode === 'hide') row.style.display = isLive ? 'none' : '';
-    else if (mode === 'only') row.style.display = isLive ? '' : 'none';
+  if (btn) {{ btn.style.background = 'var(--primary)'; btn.style.color = '#fff'; btn.style.borderColor = 'var(--primary)'; }}
+  renderLFTables();
+}}
+
+function renderShortsTables() {{
+  const cutoff = _dateCutoff(_shortsTimePeriod);
+  const pool = ALL_VIDEOS.filter(v => (v.dur || 0) < 2 && (v.publish_date || '') >= cutoff);
+  const top20 = [...pool].sort((a,b) => (b.v||0) - (a.v||0)).slice(0, 20);
+  const bot20 = [...pool].sort((a,b) => (a.v||0) - (b.v||0)).slice(0, 20);
+  document.getElementById('shorts-top-table').innerHTML = _renderVideoTable(top20, '');
+  document.getElementById('shorts-bot-table').innerHTML = _renderVideoTable(bot20, 'red');
+}}
+
+function setShortsTime(period, btn) {{
+  _shortsTimePeriod = period;
+  document.querySelectorAll('.shorts-time-btn').forEach(b => {{
+    b.style.background = 'var(--surface)'; b.style.color = 'var(--text-muted)'; b.style.borderColor = 'var(--border)';
   }});
+  if (btn) {{ btn.style.background = 'var(--primary)'; btn.style.color = '#fff'; btn.style.borderColor = 'var(--primary)'; }}
+  renderShortsTables();
+}}
+
+// ── Video Analysis Bot ──────────────────────────────────────────
+function _vidChatBubble(role, html) {{
+  const box = document.getElementById('vid-chat-messages');
+  const div = document.createElement('div');
+  div.className = 'chat-bubble ' + role;
+  div.innerHTML = html;
+  box.appendChild(div);
+  box.scrollTop = box.scrollHeight;
+  return div;
+}}
+
+function _buildVideoContext() {{
+  // Build concise data summary for the AI
+  const lf = ALL_VIDEOS.filter(v => (v.dur||0) >= 5);
+  const shorts = ALL_VIDEOS.filter(v => (v.dur||0) < 2);
+  const topLF = [...lf].sort((a,b) => (b.v||0)-(a.v||0)).slice(0,20);
+  const botLF = [...lf].sort((a,b) => (a.v||0)-(b.v||0)).slice(0,20);
+
+  // Day of week stats
+  const dayStats = {{}};
+  lf.forEach(v => {{
+    const d = v.d || 'Unknown';
+    if (!dayStats[d]) dayStats[d] = {{ total: 0, count: 0 }};
+    dayStats[d].total += (v.v || 0);
+    dayStats[d].count++;
+  }});
+
+  // Length bucket stats
+  const lenStats = {{}};
+  lf.forEach(v => {{
+    const dur = v.dur || 0;
+    let bucket = '';
+    if (dur < 20) bucket = '5-20min';
+    else if (dur < 40) bucket = '20-40min';
+    else if (dur < 60) bucket = '40-60min';
+    else if (dur < 90) bucket = '60-90min';
+    else bucket = '90+min';
+    if (!lenStats[bucket]) lenStats[bucket] = {{ total: 0, count: 0 }};
+    lenStats[bucket].total += (v.v || 0);
+    lenStats[bucket].count++;
+  }});
+
+  let ctx = 'CHANNEL DATA SUMMARY:\\n';
+  ctx += 'Total videos: ' + ALL_VIDEOS.length + ' (' + lf.length + ' long-form, ' + shorts.length + ' shorts)\\n\\n';
+
+  ctx += 'TOP 20 LONG-FORM BY VIEWS:\\n';
+  topLF.forEach((v,i) => {{
+    ctx += (i+1) + '. "' + v.title + '" - ' + (v.v||0).toLocaleString() + ' views, ' + Math.round(v.dur||0) + 'min, ' + (v.d||'') + ', ' + (v.publish_date||'') + (v.ctr ? ', CTR: ' + v.ctr + '%' : '') + '\\n';
+  }});
+
+  ctx += '\\nBOTTOM 20 LONG-FORM BY VIEWS:\\n';
+  botLF.forEach((v,i) => {{
+    ctx += (i+1) + '. "' + v.title + '" - ' + (v.v||0).toLocaleString() + ' views, ' + Math.round(v.dur||0) + 'min, ' + (v.d||'') + ', ' + (v.publish_date||'') + (v.ctr ? ', CTR: ' + v.ctr + '%' : '') + '\\n';
+  }});
+
+  ctx += '\\nDAY OF WEEK AVERAGES (long-form):\\n';
+  ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'].forEach(d => {{
+    const s = dayStats[d];
+    if (s && s.count) ctx += d + ': ' + Math.round(s.total/s.count).toLocaleString() + ' avg (' + s.count + ' videos)\\n';
+  }});
+
+  ctx += '\\nLENGTH BUCKET AVERAGES (long-form):\\n';
+  Object.keys(lenStats).sort().forEach(b => {{
+    const s = lenStats[b];
+    if (s && s.count) ctx += b + ': ' + Math.round(s.total/s.count).toLocaleString() + ' avg (' + s.count + ' videos)\\n';
+  }});
+
+  ctx += '\\nKEY INSIGHTS: First-person titles ("My/I") massively outperform third-person. Sunday is the best day. 60-90 min is the best length. Cold opens beat intros. Wedding/family/AITA topics perform best.\\n';
+
+  return ctx;
+}}
+
+async function askVideoBot() {{
+  const input = document.getElementById('vid-chat-input');
+  const question = input.value.trim();
+  if (!question) return;
+  const key = getKey();
+  if (!key) {{ alert('Save your Anthropic API key in the Analytics tab first.'); return; }}
+
+  input.value = '';
+  _vidChatBubble('user', _esc(question));
+  const thinking = _vidChatBubble('assistant', '<em style="color:var(--text-muted)">Analyzing your video data...</em>');
+
+  const videoCtx = _buildVideoContext();
+  const prompt = 'You are a YouTube analytics expert analyzing the OKStorytime channel. You have access to all their video data below.\\n\\n'
+    + videoCtx + '\\n\\n'
+    + 'USER QUESTION: ' + question + '\\n\\n'
+    + 'Answer concisely with specific data points. Reference actual video titles and numbers. Use bullet points for clarity. If comparing videos, explain WHY one worked and the other didn\\'t based on title patterns, day of week, length, and topics. Keep your answer under 300 words.';
+
+  try {{
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {{
+      method: 'POST',
+      headers: {{
+        'Content-Type': 'application/json',
+        'x-api-key': key,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      }},
+      body: JSON.stringify({{
+        model: 'claude-sonnet-4-6',
+        max_tokens: 800,
+        messages: [{{ role: 'user', content: prompt }}]
+      }})
+    }});
+    const data = await resp.json();
+    if (data.error) {{
+      thinking.innerHTML = '<span style="color:var(--red)">Error: ' + _esc(data.error.message || 'API error') + '</span>';
+    }} else {{
+      const text = data.content[0].text;
+      thinking.innerHTML = text.replace(/\\n/g, '<br>').replace(/\\*\\*(.+?)\\*\\*/g, '<strong>$1</strong>').replace(/\\*(.+?)\\*/g, '<em>$1</em>').replace(/^- /gm, '• ');
+    }}
+  }} catch (e) {{
+    thinking.innerHTML = '<span style="color:var(--red)">Error: ' + _esc(e.message) + '</span>';
+  }}
 }}
 
 function showVideoSub(name, btn) {{
@@ -2954,6 +3164,8 @@ drawChart(MONTHLY_DATA.slice(-12));
 filterThumbs('all', null);
 filterCompThumbs('week', null);
 filterTitles('all', null);
+renderLFTables();
+renderShortsTables();
 
 // ── AI Chat ─────────────────────────────────────────────────────
 (function() {{
@@ -3069,7 +3281,7 @@ filterTitles('all', null);
     status.textContent = 'Generating…';
     results.style.display = 'none';
 
-    const topWords = ['mega','weekly','recap','compilation','truth','dark','reaction','hours','proposed','abandoned'];
+    const topWords = ['truth','dark','reaction','hours','proposed','abandoned','secret','demanded','exposed','wedding'];
     const avoidWords = ['clip','tifu','maliciouscompliance','askreddit','full','flag','denise','brady','joanna'];
     const exampleTitles = [
       'My husband BONED his co-worker…',
@@ -3085,7 +3297,7 @@ filterTitles('all', null);
       + '- Must create unresolved tension — viewer NEEDS to know what happens\\n'
       + '- Use strong emotional words: TRUTH, SECRET, REVEALED, BONED, ABANDONED, DEMANDED, EXPOSED\\n'
       + '- Ellipsis (…) works well to create a cliffhanger mid-title\\n'
-      + '- Best performing words to include if natural: mega, weekly, recap, compilation, truth, dark, reaction, hours\\n'
+      + '- Best performing words to include if natural: truth, dark, reaction, hours, proposed, abandoned, secret, demanded, exposed\\n'
       + '- AVOID: clip, tifu, maliciouscompliance, askreddit, full, flag, host names (Denise, Brady, Joanna)\\n'
       + '- AVOID leading with: "r/", "rSlash", host names, or "full episode"\\n'
       + '- Length: 60-80 characters is ideal\\n\\n'
