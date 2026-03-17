@@ -396,16 +396,33 @@ def build(videos):
         if sv: shorts_yr[yr] = sum(v["view_count"] for v in sv)/len(sv)
         if lv: long_yr[yr]   = sum(v["view_count"] for v in lv)/len(lv)
 
-    # Monthly data — ALL years for chart (long-form 5+ min only)
+    # Monthly data — ALL years for chart (long-form 5+ min only), multi-metric
     all_monthly = {}
     for v in videos:
         if v["publish_year"] >= 2022 and v["duration_minutes"] >= 5:
             k = f"{v['publish_year']}-{v['publish_month']:02d}"
-            all_monthly.setdefault(k, []).append(v["view_count"])
-    monthly_chart_data = [
-        {"month": k, "avg": round(sum(vals)/len(vals)), "count": len(vals)}
-        for k, vals in sorted(all_monthly.items())
-    ]
+            all_monthly.setdefault(k, []).append(v)
+    monthly_chart_data = []
+    for k, vids_in_month in sorted(all_monthly.items()):
+        n = len(vids_in_month)
+        total_views = sum(v["view_count"] for v in vids_in_month)
+        total_wh = sum(v.get("watch_time_hours", 0) for v in vids_in_month)
+        avg_dur = sum(v["duration_minutes"] for v in vids_in_month) / n
+        ctrs = [v.get("ctr_pct", 0) for v in vids_in_month if v.get("ctr_pct", 0) > 0]
+        avg_ctr = (sum(ctrs) / len(ctrs)) if ctrs else 0
+        avg_pcts = [v.get("avg_pct_viewed", 0) for v in vids_in_month if v.get("avg_pct_viewed", 0) > 0]
+        avg_pct = (sum(avg_pcts) / len(avg_pcts)) if avg_pcts else 0
+        total_rev = sum(v.get("estimated_revenue_usd", 0) for v in vids_in_month)
+        monthly_chart_data.append({
+            "month": k, "count": n,
+            "views": total_views,
+            "avg_views": round(total_views / n),
+            "watch_hours": round(total_wh, 1),
+            "avg_duration": round(avg_dur, 1),
+            "avg_pct_viewed": round(avg_pct, 1),
+            "ctr": round(avg_ctr, 2),
+            "revenue": round(total_rev, 2),
+        })
     monthly_json = json.dumps(monthly_chart_data)
 
     # Monthly for legacy table (2023+, long-form 5+ min only)
@@ -1211,6 +1228,13 @@ a:hover {{ text-decoration: underline; }}
 .filter-btn {{ padding: 6px 14px; border-radius: 20px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--text-muted); font-size: .8rem; font-weight: 600; cursor: pointer; font-family: inherit; transition: all .15s; }}
 .filter-btn:hover {{ border-color: var(--primary); color: var(--primary); }}
 .filter-btn.active {{ background: var(--primary); color: white; border-color: var(--primary); }}
+/* YouTube Studio metric tabs */
+.metric-tab {{ padding: 14px 22px; border: none; background: none; cursor: pointer; font-family: inherit; text-align: left; position: relative; min-width: 120px; border-bottom: 3px solid transparent; margin-bottom: -2px; transition: all .15s; }}
+.metric-tab:hover {{ background: var(--surface2); }}
+.metric-tab.active {{ border-bottom-color: var(--primary); }}
+.metric-tab-value {{ font-size: 1.3rem; font-weight: 800; color: var(--text-muted); line-height: 1.2; }}
+.metric-tab.active .metric-tab-value {{ color: var(--text); }}
+.metric-tab-label {{ font-size: .72rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em; margin-top: 2px; white-space: nowrap; }}
 .chart-container {{ position: relative; height: 300px; margin-bottom: 8px; }}
 .chart-meta {{ display: flex; gap: 20px; margin-top: 12px; flex-wrap: wrap; }}
 .chart-stat {{ font-size: .82rem; }}
@@ -1884,24 +1908,45 @@ footer {{ text-align: center; color: var(--text-muted); font-size: .75rem; paddi
     </div>
   </div>
 
-  <!-- Monthly Trend Chart -->
-  <div class="card">
-    <div class="card-title">📆 Monthly Avg Views Trend (Long-Form Only)</div>
-    <div class="filter-bar" id="chart-filters">
-      <span>Time range:</span>
+  <!-- Monthly Trend Chart — YouTube Studio Style -->
+  <div class="card" id="trend-card">
+    <!-- Metric Tabs -->
+    <div style="display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:16px;overflow-x:auto" id="metric-tabs">
+      <button class="metric-tab active" onclick="setMetric('views',this)">
+        <div class="metric-tab-value" id="mt-views-val">—</div>
+        <div class="metric-tab-label">Views</div>
+      </button>
+      <button class="metric-tab" onclick="setMetric('watch_hours',this)">
+        <div class="metric-tab-value" id="mt-watch_hours-val">—</div>
+        <div class="metric-tab-label">Watch time (hrs)</div>
+      </button>
+      <button class="metric-tab" onclick="setMetric('avg_duration',this)">
+        <div class="metric-tab-value" id="mt-avg_duration-val">—</div>
+        <div class="metric-tab-label">Avg duration</div>
+      </button>
+      <button class="metric-tab" onclick="setMetric('ctr',this)">
+        <div class="metric-tab-value" id="mt-ctr-val">—</div>
+        <div class="metric-tab-label">CTR</div>
+      </button>
+      <button class="metric-tab" onclick="setMetric('revenue',this)">
+        <div class="metric-tab-value" id="mt-revenue-val">—</div>
+        <div class="metric-tab-label">Revenue</div>
+      </button>
+    </div>
+    <!-- Time Range Filters -->
+    <div class="filter-bar" id="chart-filters" style="margin-bottom:12px">
       <button class="filter-btn" onclick="setChartRange(3,this)">3M</button>
       <button class="filter-btn" onclick="setChartRange(6,this)">6M</button>
       <button class="filter-btn active" onclick="setChartRange(12,this)">1Y</button>
       <button class="filter-btn" onclick="setChartRange(24,this)">2Y</button>
       <button class="filter-btn" onclick="setChartRange(0,this)">All Time</button>
     </div>
-    <div class="chart-container">
+    <div class="chart-container" style="height:320px">
       <canvas id="monthly-chart"></canvas>
     </div>
     <div class="chart-meta" id="chart-meta"></div>
     <p style="font-size:.78rem;color:var(--text-muted);margin-top:12px">
-      💡 <strong>Daily/weekly granularity</strong> requires the YouTube Analytics API — ask Sam to connect his Google account for deeper data.
-      &nbsp;·&nbsp; <strong>Auto-update:</strong> Re-run <code style="background:#f5f3ff;padding:1px 5px;border-radius:4px;color:var(--primary)">fetch_channel_data.py</code> then <code style="background:#f5f3ff;padding:1px 5px;border-radius:4px;color:var(--primary)">generate_report.py</code> to refresh this report.
+      Long-form videos only (5+ min). <strong>Auto-update:</strong> Re-run <code style="background:#f5f3ff;padding:1px 5px;border-radius:4px;color:var(--primary)">fetch_channel_data.py</code> then <code style="background:#f5f3ff;padding:1px 5px;border-radius:4px;color:var(--primary)">generate_report.py</code> to refresh.
     </p>
   </div>
 
@@ -2699,19 +2744,62 @@ function filterAnalytics(year, btn) {{
   if (bestLen) document.getElementById('len-note').textContent = `${{bestLen.label}} is your top format for this period.`;
 }}
 
-// ── Monthly Chart (Chart.js) ────────────────────────────────────
+// ── Monthly Chart — YouTube Studio Style (Chart.js) ──────────────
 let monthlyChart = null;
+let _currentMetric = 'views';
+let _currentRange = 12;
+
+const METRIC_CONFIG = {{
+  views:        {{ key: 'views',        label: 'Total Views',        color: '#7c3aed', fmt: v => fmtK(v),   tooltipLabel: 'views',          unit: '' }},
+  watch_hours:  {{ key: 'watch_hours',  label: 'Watch Time (hrs)',   color: '#2563eb', fmt: v => fmtK(v),   tooltipLabel: 'hours watched',  unit: ' hrs' }},
+  avg_duration: {{ key: 'avg_duration', label: 'Avg Duration (min)', color: '#059669', fmt: v => v.toFixed(1) + 'm', tooltipLabel: 'min avg', unit: ' min' }},
+  ctr:          {{ key: 'ctr',          label: 'CTR (%)',            color: '#d97706', fmt: v => v.toFixed(2) + '%',  tooltipLabel: '% CTR',  unit: '%' }},
+  revenue:      {{ key: 'revenue',      label: 'Revenue',            color: '#16a34a', fmt: v => '$' + fmtK(v),       tooltipLabel: 'revenue', unit: '' }},
+}};
+
+function setMetric(metric, btn) {{
+  document.querySelectorAll('#metric-tabs .metric-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  _currentMetric = metric;
+  redrawChart();
+}}
+window.setMetric = setMetric;
 
 function setChartRange(months, btn) {{
   document.querySelectorAll('#chart-filters .filter-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
-  const data = months === 0 ? MONTHLY_DATA : MONTHLY_DATA.slice(-months);
-  drawChart(data);
+  _currentRange = months;
+  redrawChart();
 }}
 
-function drawChart(data) {{
+function redrawChart() {{
+  const data = _currentRange === 0 ? MONTHLY_DATA : MONTHLY_DATA.slice(-_currentRange);
+  drawChart(data, _currentMetric);
+  updateMetricTabs(data);
+}}
+
+function updateMetricTabs(data) {{
+  // Update each tab's summary value for the current time range
+  Object.entries(METRIC_CONFIG).forEach(([key, cfg]) => {{
+    const el = document.getElementById('mt-' + key + '-val');
+    if (!el) return;
+    const values = data.map(d => d[key] || 0);
+    const total = values.reduce((a, b) => a + b, 0);
+    if (key === 'views' || key === 'watch_hours' || key === 'revenue') {{
+      el.textContent = cfg.fmt(total);
+    }} else {{
+      // For averages (CTR, avg_duration), show period average
+      const nonZero = values.filter(v => v > 0);
+      const avg = nonZero.length ? nonZero.reduce((a,b) => a+b, 0) / nonZero.length : 0;
+      el.textContent = cfg.fmt(avg);
+    }}
+  }});
+}}
+
+function drawChart(data, metric) {{
+  const cfg = METRIC_CONFIG[metric] || METRIC_CONFIG.views;
   const labels = data.map(d => d.month);
-  const values = data.map(d => d.avg);
+  const values = data.map(d => d[cfg.key] || 0);
   const counts = data.map(d => d.count);
   const peak   = Math.max(...values);
   const peakIdx = values.indexOf(peak);
@@ -2719,25 +2807,25 @@ function drawChart(data) {{
   if (monthlyChart) monthlyChart.destroy();
 
   const ctx = document.getElementById('monthly-chart').getContext('2d');
-  const grad = ctx.createLinearGradient(0, 0, 0, 300);
-  grad.addColorStop(0, 'rgba(124,58,237,0.25)');
-  grad.addColorStop(1, 'rgba(124,58,237,0)');
+  const grad = ctx.createLinearGradient(0, 0, 0, 320);
+  grad.addColorStop(0, cfg.color + '40');
+  grad.addColorStop(1, cfg.color + '00');
 
   monthlyChart = new Chart(ctx, {{
     type: 'line',
     data: {{
       labels,
       datasets: [{{
-        label: 'Avg Views',
+        label: cfg.label,
         data: values,
-        borderColor: '#7c3aed',
+        borderColor: cfg.color,
         backgroundColor: grad,
         borderWidth: 2.5,
         fill: true,
-        tension: 0.4,
+        tension: 0.35,
         pointRadius: data.length > 24 ? 2 : 4,
         pointHoverRadius: 7,
-        pointBackgroundColor: values.map((v,i) => i===peakIdx ? '#f59e0b' : '#7c3aed'),
+        pointBackgroundColor: values.map((v,i) => i === peakIdx ? '#f59e0b' : cfg.color),
         pointBorderColor: 'white',
         pointBorderWidth: 2,
       }}]
@@ -2756,8 +2844,8 @@ function drawChart(data) {{
           cornerRadius: 10,
           callbacks: {{
             title: ctx => ctx[0].label,
-            label: ctx => ` ${{ctx.parsed.y.toLocaleString()}} avg views`,
-            afterLabel: ctx => ` ${{counts[ctx.dataIndex]}} videos uploaded`,
+            label: ctx => ' ' + cfg.fmt(ctx.parsed.y) + ' ' + cfg.tooltipLabel,
+            afterLabel: ctx => ' ' + counts[ctx.dataIndex] + ' videos',
           }}
         }}
       }},
@@ -2765,34 +2853,36 @@ function drawChart(data) {{
         x: {{
           grid: {{ display: false }},
           border: {{ display: false }},
-          ticks: {{
-            color: '#9ca3af',
-            font: {{ size: 11 }},
-            maxTicksLimit: 14,
-            maxRotation: 45,
-          }}
+          ticks: {{ color: '#9ca3af', font: {{ size: 11 }}, maxTicksLimit: 14, maxRotation: 45 }}
         }},
         y: {{
           grid: {{ color: 'rgba(0,0,0,0.04)', drawBorder: false }},
           border: {{ display: false }},
+          beginAtZero: metric === 'ctr' || metric === 'avg_duration',
           ticks: {{
             color: '#9ca3af',
             font: {{ size: 11 }},
-            callback: v => fmtK(v),
+            callback: v => cfg.fmt(v),
           }}
         }}
       }}
     }}
   }});
 
-  // Update meta stats
-  const avg = Math.round(values.reduce((a,b)=>a+b,0)/values.length);
+  // Update meta stats below chart
+  const nonZero = values.filter(v => v > 0);
+  const avg = nonZero.length ? nonZero.reduce((a,b) => a+b, 0) / nonZero.length : 0;
   const recent3 = values.slice(-3);
-  const avg3 = Math.round(recent3.reduce((a,b)=>a+b,0)/recent3.length);
+  const avg3 = recent3.length ? recent3.reduce((a,b) => a+b, 0) / recent3.length : 0;
+  const isSumMetric = ['views','watch_hours','revenue'].includes(metric);
+  const totalOrAvg = isSumMetric ? values.reduce((a,b)=>a+b,0) : avg;
+  const totalLabel = isSumMetric ? 'Total in period' : 'Average over period';
+
   document.getElementById('chart-meta').innerHTML = `
-    <div class="chart-stat"><span class="cs-val">${{fmtK(peak)}}</span><br><span class="cs-lbl">Peak in this period (${{labels[peakIdx]}})</span></div>
-    <div class="chart-stat"><span class="cs-val">${{fmtK(avg)}}</span><br><span class="cs-lbl">Average over period</span></div>
-    <div class="chart-stat"><span class="cs-val" style="color:${{avg3 > avg ? 'var(--green)' : 'var(--red)'}}">${{fmtK(avg3)}}</span><br><span class="cs-lbl">Last 3-month avg ${{avg3 > avg ? '▲ trending up' : '▼ trending down'}}</span></div>
+    <div class="chart-stat"><span class="cs-val">${{cfg.fmt(peak)}}</span><br><span class="cs-lbl">Peak (${{labels[peakIdx]}})</span></div>
+    <div class="chart-stat"><span class="cs-val">${{cfg.fmt(totalOrAvg)}}</span><br><span class="cs-lbl">${{totalLabel}}</span></div>
+    <div class="chart-stat"><span class="cs-val" style="color:${{avg3 > avg ? 'var(--green)' : 'var(--red)'}}">${{cfg.fmt(avg3)}}</span><br><span class="cs-lbl">Last 3 months ${{avg3 > avg ? '▲ up' : '▼ down'}}</span></div>
+    <div class="chart-stat"><span class="cs-val">${{data.reduce((s,d)=>s+d.count,0)}}</span><br><span class="cs-lbl">Videos in period</span></div>
   `;
 }}
 
@@ -3277,7 +3367,7 @@ window.showMoreCompThumbs = showMoreCompThumbs;
 
 // ── Initialize ──────────────────────────────────────────────────
 filterAnalytics('all', document.getElementById('fb-all'));
-drawChart(MONTHLY_DATA.slice(-12));
+redrawChart();
 filterThumbs('all', null);
 filterCompThumbs('week', null);
 filterTitles('all', null);
@@ -3317,7 +3407,7 @@ renderShortsTables();
     const rows = ALL_VIDEOS.slice(0,500).map(v =>
       v.publish_date+'|'+v.duration_minutes+'min|'+v.view_count+'views|'+sanitize(v.title)
     ).join('\\n');
-    const monthly = MONTHLY_DATA.map(m => m.month+': '+m.avg+' avg ('+m.count+' videos)').join(', ');
+    const monthly = MONTHLY_DATA.map(m => m.month+': '+m.avg_views+' avg views, '+m.watch_hours+'h watch time, '+m.ctr+'% CTR ('+m.count+' videos)').join(', ');
     return 'You are an expert YouTube analytics advisor for the channel OKStorytime (OKOPShow).\\n'
       + 'You have access to their full video data. Use it to give specific, data-backed answers.\\n\\n'
       + 'MONTHLY TREND (avg views per video):\\n' + monthly + '\\n\\n'
