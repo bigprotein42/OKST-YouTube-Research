@@ -1661,21 +1661,138 @@ footer {{ text-align: center; color: var(--text-muted); font-size: .75rem; paddi
     <button id="comp-thumb-more" onclick="showMoreCompThumbs()" style="display:none;margin-top:12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 20px;font-size:.85rem;font-weight:600;cursor:pointer;color:var(--primary);width:100%">Show 25 More</button>
   </div>
 
-  <!-- Thumbnail + Title Workshop -->
+  <!-- AI Thumbnail Maker -->
   <div class="card" id="thumb-workshop">
-    <div class="card-title">🎨 Thumbnail + Title Workshop</div>
-    <p style="font-size:.82rem;color:var(--text-muted);margin:0 0 14px">Paste your story, and Claude will generate thumbnail concepts AND titles together — because they're one package. Uses your top-performing patterns + Sam's rules (12%+ CTR = banger, browse features = real wins).</p>
-    <div style="display:flex;flex-direction:column;gap:10px">
-      <textarea id="thumb-story-input" rows="4" placeholder="Paste the story summary here... e.g. 'A wife finds out her husband has been secretly sending money to his ex for 3 years. When she confronts him, his mom takes his side.'"
-        style="width:100%;padding:12px 14px;border:1px solid var(--border);border-radius:10px;font-family:inherit;font-size:.875rem;line-height:1.55;resize:vertical;background:var(--surface2);color:var(--text);outline:none;box-sizing:border-box"></textarea>
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <button id="thumb-gen-btn" onclick="generateThumbConcepts()" style="background:var(--primary);color:#fff;border:none;border-radius:8px;padding:9px 20px;font-size:.875rem;font-weight:600;cursor:pointer">Generate Thumbnail + Title Combos ✨</button>
-        <span id="thumb-gen-status" style="font-size:.82rem;color:var(--text-muted)"></span>
+    <div class="card-title">🎨 AI Thumbnail Maker</div>
+    <p style="font-size:.82rem;color:var(--text-muted);margin:0 0 14px">Paste your story, select who's in the episode, and get 3 AI-generated thumbnail concepts with titles. Each concept targets a different strategy: your proven style, competitor-inspired, and experimental.</p>
+
+    <!-- Host Photo Library -->
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <div style="font-size:.8rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted)">Host Photo Library</div>
+        <button onclick="document.getElementById('host-photo-upload').click()" style="padding:6px 14px;background:var(--primary);color:#fff;border:none;border-radius:8px;font-size:.78rem;font-weight:600;cursor:pointer;font-family:inherit">+ Add Photos</button>
+        <input type="file" id="host-photo-upload" accept="image/*" multiple style="display:none" onchange="handleHostPhotoUpload(this.files)">
+      </div>
+      <div id="host-photos-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:10px;min-height:60px">
+        <div id="host-photos-empty" style="grid-column:1/-1;text-align:center;padding:20px;color:var(--text-muted);font-size:.82rem;border:2px dashed var(--border);border-radius:10px">
+          No host photos yet. Upload PNG/JPG photos of Sam, John, or other hosts.<br>
+          <span style="font-size:.75rem">Tip: transparent background PNGs work best for compositing</span>
+        </div>
       </div>
     </div>
-    <div id="thumb-results" style="display:none;margin-top:18px">
-      <div style="font-size:.75rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted);margin-bottom:10px">Thumbnail + Title Combos</div>
-      <div id="thumb-combos" style="display:flex;flex-direction:column;gap:12px;font-size:.9rem;line-height:1.6"></div>
+
+    <!-- Story + Settings -->
+    <div style="display:grid;grid-template-columns:1fr 240px;gap:14px;margin-bottom:14px">
+      <div>
+        <label style="font-size:.78rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:6px">Story / Topic</label>
+        <textarea id="thumb-story-input" rows="5" placeholder="Paste the story summary here... e.g. 'A wife finds out her husband has been secretly sending money to his ex for 3 years. When she confronts him, his mom takes his side.'"
+          style="width:100%;padding:12px 14px;border:1px solid var(--border);border-radius:10px;font-family:inherit;font-size:.875rem;line-height:1.55;resize:vertical;background:var(--surface2);color:var(--text);outline:none;box-sizing:border-box"></textarea>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div>
+          <label style="font-size:.78rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:6px">Who's in this episode?</label>
+          <select id="thumb-host" style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:.85rem;background:var(--surface2);color:var(--text)">
+            <option value="sam">Sam (solo)</option>
+            <option value="john">John (solo)</option>
+            <option value="both">Sam + John</option>
+            <option value="guest">Guest episode</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size:.78rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:6px">Episode length</label>
+          <select id="thumb-length" style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:.85rem;background:var(--surface2);color:var(--text)">
+            <option value="60-90">60-90 min (best)</option>
+            <option value="40-60">40-60 min</option>
+            <option value="20-40">20-40 min</option>
+            <option value="10-20">10-20 min</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size:.78rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:6px">Text overlay style</label>
+          <select id="thumb-text-style" style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:.85rem;background:var(--surface2);color:var(--text)">
+            <option value="bold-keyword">Bold keyword (1-2 words, e.g. "EXPOSED")</option>
+            <option value="short-quote">Short quote from story</option>
+            <option value="none">No text overlay</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Generate Button -->
+    <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px">
+      <button id="thumb-gen-btn" onclick="generateThumbnails()" style="background:linear-gradient(135deg,var(--primary),#7c3aed);color:#fff;border:none;border-radius:10px;padding:12px 28px;font-size:.9rem;font-weight:700;cursor:pointer;font-family:inherit;box-shadow:0 2px 8px rgba(124,58,237,.3)">Generate 3 Thumbnails</button>
+      <span id="thumb-gen-status" style="font-size:.82rem;color:var(--text-muted)"></span>
+    </div>
+
+    <!-- Results: 3 thumbnail concepts -->
+    <div id="thumb-results" style="display:none">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:18px">
+        <!-- Concept 1: Your Style -->
+        <div style="border:2px solid var(--green);border-radius:12px;overflow:hidden;background:var(--surface)">
+          <div style="background:var(--green-bg);padding:10px 14px;font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#065f46;display:flex;align-items:center;gap:6px">
+            <span>1</span> Your Proven Style
+          </div>
+          <div id="thumb-concept-1" style="padding:14px">
+            <div id="thumb-img-1" style="aspect-ratio:16/9;background:var(--surface2);border-radius:8px;margin-bottom:10px;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative">
+              <span style="color:var(--text-muted);font-size:.8rem">Thumbnail will appear here</span>
+            </div>
+            <div id="thumb-title-1" style="font-size:.9rem;font-weight:700;line-height:1.4;margin-bottom:6px"></div>
+            <div id="thumb-why-1" style="font-size:.78rem;color:var(--text-muted);line-height:1.4"></div>
+          </div>
+        </div>
+        <!-- Concept 2: Competitor-Inspired -->
+        <div style="border:2px solid var(--primary);border-radius:12px;overflow:hidden;background:var(--surface)">
+          <div style="background:var(--primary-bg);padding:10px 14px;font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--primary);display:flex;align-items:center;gap:6px">
+            <span>2</span> Competitor-Inspired
+          </div>
+          <div id="thumb-concept-2" style="padding:14px">
+            <div id="thumb-img-2" style="aspect-ratio:16/9;background:var(--surface2);border-radius:8px;margin-bottom:10px;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative">
+              <span style="color:var(--text-muted);font-size:.8rem">Thumbnail will appear here</span>
+            </div>
+            <div id="thumb-title-2" style="font-size:.9rem;font-weight:700;line-height:1.4;margin-bottom:6px"></div>
+            <div id="thumb-why-2" style="font-size:.78rem;color:var(--text-muted);line-height:1.4"></div>
+          </div>
+        </div>
+        <!-- Concept 3: Experimental -->
+        <div style="border:2px solid #f59e0b;border-radius:12px;overflow:hidden;background:var(--surface)">
+          <div style="background:#fffbeb;padding:10px 14px;font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#92400e;display:flex;align-items:center;gap:6px">
+            <span>3</span> Experimental / Fresh
+          </div>
+          <div id="thumb-concept-3" style="padding:14px">
+            <div id="thumb-img-3" style="aspect-ratio:16/9;background:var(--surface2);border-radius:8px;margin-bottom:10px;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative">
+              <span style="color:var(--text-muted);font-size:.8rem">Thumbnail will appear here</span>
+            </div>
+            <div id="thumb-title-3" style="font-size:.9rem;font-weight:700;line-height:1.4;margin-bottom:6px"></div>
+            <div id="thumb-why-3" style="font-size:.78rem;color:var(--text-muted);line-height:1.4"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Refinement Chat -->
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:14px">
+        <div style="font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin-bottom:10px">Refine Your Thumbnails</div>
+        <div id="thumb-chat-messages" style="min-height:60px;max-height:280px;overflow-y:auto;display:flex;flex-direction:column;gap:10px;margin-bottom:10px">
+          <div class="chat-bubble assistant" style="font-size:.82rem">Pick a concept above and tell me what to change. E.g. "Make #1 more dramatic", "Try #2 with angry expression", "Add 'EXPOSED' text to #3"</div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <input type="text" id="thumb-chat-input" placeholder="e.g. 'Make concept 2 more dramatic, add red glow behind the text...'" style="flex:1;padding:10px 14px;border:1px solid var(--border);border-radius:10px;background:var(--surface);color:var(--text);font-size:.85rem;font-family:inherit" onkeydown="if(event.key==='Enter')refineThumb()">
+          <button onclick="refineThumb()" style="padding:10px 18px;background:var(--primary);color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;font-family:inherit;font-size:.85rem">Refine</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- OpenAI Key (for DALL-E) -->
+    <div style="margin-top:14px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 16px">
+      <div style="display:flex;gap:8px;align-items:center" id="openai-key-bar">
+        <span style="font-size:.82rem;color:var(--text-muted);font-weight:600;white-space:nowrap">OpenAI API Key (for DALL-E images):</span>
+        <input type="password" id="openai-key-input" placeholder="sk-... (stored locally, never uploaded)" style="flex:1;padding:6px 10px;border:1px solid var(--border);border-radius:8px;font-size:.82rem;font-family:inherit;background:var(--surface);color:var(--text)">
+        <button onclick="saveOpenAIKey()" style="padding:6px 14px;background:var(--primary);color:#fff;border:none;border-radius:8px;font-size:.82rem;font-weight:600;cursor:pointer;font-family:inherit">Save</button>
+      </div>
+      <div id="openai-key-saved" style="display:none;align-items:center;gap:8px;font-size:.82rem;color:var(--green)">
+        <span>OpenAI key saved locally</span>
+        <button onclick="clearOpenAIKey()" style="padding:4px 10px;background:var(--surface);color:var(--text-muted);border:1px solid var(--border);border-radius:6px;font-size:.78rem;cursor:pointer;font-family:inherit">Change Key</button>
+      </div>
+      <p style="font-size:.75rem;color:var(--text-muted);margin:8px 0 0">Without OpenAI key: generates text descriptions + composites host photos. With key: generates full AI thumbnail images via DALL-E 3 (~$0.04 each). Also needs Anthropic key (Analytics tab) for title/concept generation.</p>
     </div>
   </div>
 
@@ -3340,6 +3457,7 @@ renderShortsTables();
   // Expose to global scope
   window.saveKey = saveKey;
   window.clearKey = clearKey;
+  window.getKey = getKey;
   window.sendChat = sendChat;
   window.askChip = askChip;
   window.generateTitles = generateTitles;
@@ -3953,61 +4071,316 @@ function renderRules() {{
 window.addRule = addRule;
 window.deleteRule = deleteRule;
 
-// ── Thumbnail + Title Workshop (Claude API) ───────────────────
-async function generateThumbConcepts() {{
+// ── AI Thumbnail Maker ────────────────────────────────────────
+const HOST_PHOTOS_LS = 'okst_host_photos';
+const OPENAI_KEY_LS = 'okst_openai_key';
+let _thumbConversation = [];
+
+function saveOpenAIKey() {{
+  const v = document.getElementById('openai-key-input').value.trim();
+  if (!v) return;
+  localStorage.setItem(OPENAI_KEY_LS, v);
+  document.getElementById('openai-key-input').value = '';
+  document.getElementById('openai-key-bar').style.display = 'none';
+  document.getElementById('openai-key-saved').style.display = 'flex';
+}}
+function clearOpenAIKey() {{
+  localStorage.removeItem(OPENAI_KEY_LS);
+  document.getElementById('openai-key-bar').style.display = 'flex';
+  document.getElementById('openai-key-saved').style.display = 'none';
+}}
+window.saveOpenAIKey = saveOpenAIKey;
+window.clearOpenAIKey = clearOpenAIKey;
+
+function getHostPhotos() {{
+  try {{ return JSON.parse(localStorage.getItem(HOST_PHOTOS_LS) || '[]'); }} catch {{ return []; }}
+}}
+
+function renderHostPhotos() {{
+  const photos = getHostPhotos();
+  const grid = document.getElementById('host-photos-grid');
+  const empty = document.getElementById('host-photos-empty');
+  if (!photos.length) {{ if (empty) empty.style.display = 'block'; return; }}
+  if (empty) empty.style.display = 'none';
+  // Remove old photo elements (keep empty placeholder)
+  grid.querySelectorAll('.host-photo-item').forEach(el => el.remove());
+  photos.forEach((p, i) => {{
+    const div = document.createElement('div');
+    div.className = 'host-photo-item';
+    div.style.cssText = 'position:relative;border-radius:8px;overflow:hidden;border:1px solid var(--border);background:var(--surface)';
+    div.innerHTML = '<img src="' + p.data + '" style="width:100%;aspect-ratio:1;object-fit:cover;display:block">'
+      + '<div style="padding:4px 6px;font-size:.72rem;font-weight:600;text-align:center;background:var(--surface2)">' + _esc(p.name) + '</div>'
+      + '<button onclick="removeHostPhoto(' + i + ')" style="position:absolute;top:4px;right:4px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:50%;width:20px;height:20px;font-size:.7rem;cursor:pointer;display:flex;align-items:center;justify-content:center">x</button>';
+    grid.appendChild(div);
+  }});
+}}
+
+function handleHostPhotoUpload(files) {{
+  const photos = getHostPhotos();
+  Array.from(files).forEach(file => {{
+    if (!file.type.startsWith('image/')) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {{
+      const name = prompt('Who is this? (e.g. Sam, John, Guest)', file.name.replace(/\\.[^.]+$/, ''));
+      if (!name) return;
+      photos.push({{ name: name, data: e.target.result, filename: file.name }});
+      localStorage.setItem(HOST_PHOTOS_LS, JSON.stringify(photos));
+      renderHostPhotos();
+    }};
+    reader.readAsDataURL(file);
+  }});
+}}
+window.handleHostPhotoUpload = handleHostPhotoUpload;
+
+function removeHostPhoto(idx) {{
+  const photos = getHostPhotos();
+  photos.splice(idx, 1);
+  localStorage.setItem(HOST_PHOTOS_LS, JSON.stringify(photos));
+  renderHostPhotos();
+}}
+window.removeHostPhoto = removeHostPhoto;
+
+function _thumbChatBubble(role, html) {{
+  const box = document.getElementById('thumb-chat-messages');
+  const div = document.createElement('div');
+  div.className = 'chat-bubble ' + role;
+  div.style.fontSize = '.82rem';
+  div.innerHTML = html;
+  box.appendChild(div);
+  box.scrollTop = box.scrollHeight;
+  return div;
+}}
+
+async function _callClaude(messages, maxTokens, systemPrompt) {{
+  const key = getKey();
+  if (!key) {{ alert('Save your Anthropic API key in the Analytics tab first.'); return null; }}
+  const body = {{ model: 'claude-sonnet-4-6', max_tokens: maxTokens || 1500, messages: messages }};
+  if (systemPrompt) body.system = systemPrompt;
+  const resp = await fetch('https://api.anthropic.com/v1/messages', {{
+    method: 'POST',
+    headers: {{ 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' }},
+    body: JSON.stringify(body)
+  }});
+  return await resp.json();
+}}
+
+async function _generateDalle(prompt) {{
+  const key = localStorage.getItem(OPENAI_KEY_LS);
+  if (!key) return null;
+  try {{
+    const resp = await fetch('https://api.openai.com/v1/images/generations', {{
+      method: 'POST',
+      headers: {{ 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key }},
+      body: JSON.stringify({{ model: 'dall-e-3', prompt: prompt, n: 1, size: '1792x1024', quality: 'standard', response_format: 'b64_json' }})
+    }});
+    const data = await resp.json();
+    if (data.data && data.data[0]) return 'data:image/png;base64,' + data.data[0].b64_json;
+    return null;
+  }} catch(e) {{ console.error('DALL-E error:', e); return null; }}
+}}
+
+async function generateThumbnails() {{
   const story = document.getElementById('thumb-story-input').value.trim();
   if (!story) {{ alert('Paste a story summary first.'); return; }}
-  const key = localStorage.getItem('claude_api_key');
-  if (!key) {{ alert('Save your Anthropic API key in the Analytics tab first.'); return; }}
+  if (!getKey()) {{ alert('Save your Anthropic API key in the Analytics tab first.'); return; }}
 
   const btn = document.getElementById('thumb-gen-btn');
   const status = document.getElementById('thumb-gen-status');
   btn.disabled = true;
-  status.textContent = 'Generating...';
+  status.textContent = 'Step 1/3: Generating concepts...';
+  document.getElementById('thumb-results').style.display = 'block';
 
-  // Build context from top videos
-  const topVids = ALL_VIDEOS.filter(v => v.duration_minutes >= 5 && v.ctr > 0)
-    .sort((a,b) => b.ctr - a.ctr).slice(0, 20)
-    .map(v => v.ctr.toFixed(1) + '% CTR | ' + v.view_count + ' views | ' + v.title).join('\\n');
+  const host = document.getElementById('thumb-host').value;
+  const length = document.getElementById('thumb-length').value;
+  const textStyle = document.getElementById('thumb-text-style').value;
+  const hostPhotos = getHostPhotos();
+  const hasPhotos = hostPhotos.length > 0;
+  const hasDalle = !!localStorage.getItem(OPENAI_KEY_LS);
 
-  const systemPrompt = 'You are a YouTube thumbnail + title expert for OKStorytime, a Reddit story reaction channel.'
-    + '\\n\\nChannel rules (from Sam, the manager):'
-    + '\\n- Thumbnail: extreme close-up of Sam or John, purple/blue studio, mouth open shocked, eyes wide'
-    + '\\n- No guests in thumbnails, no red backgrounds, no cluttered UI'
-    + '\\n- Title: first-person drama + unresolved twist. "I got tricked into marriage" beats "Parents trick daughter"'
-    + '\\n- 12%+ CTR in first hour = banger. We want 10K views in 48 hours.'
-    + '\\n- Relationship stories perform best'
-    + '\\n\\nTop 20 videos by CTR:\\n' + topVids
-    + '\\n\\nGenerate 5 thumbnail + title combos. For each:'
-    + '\\n1. TITLE (using proven patterns)'
-    + '\\n2. THUMBNAIL DESCRIPTION (specific: who, expression, background color, text overlay if any)'
-    + '\\n3. WHY IT WORKS (1 sentence referencing data)'
-    + '\\nFormat each as a numbered block.';
+  // Get top competitor thumbnails for reference
+  const topComp = COMP_VIDEOS.slice(0, 10).map(c => c.channel + ': "' + c.title + '" (' + (c.view_count||0).toLocaleString() + ' views)').join('\\n');
+
+  // Build top performing own videos
+  const topOwn = ALL_VIDEOS.filter(v => (v.dur||0) >= 5)
+    .sort((a,b) => (b.v||0)-(a.v||0)).slice(0,10)
+    .map(v => '"' + v.title + '" (' + (v.v||0).toLocaleString() + ' views)').join('\\n');
+
+  const systemPrompt = 'You are a YouTube thumbnail + title expert for OKStorytime, a Reddit story reaction channel with 1.3M subscribers.\\n\\n'
+    + 'CHANNEL THUMBNAIL RULES:\\n'
+    + '- Host: extreme close-up (face fills 80%+ of frame), shocked/dramatic expression, direct eye contact\\n'
+    + '- Background: purple/blue studio tones work best. Dark gradients also strong.\\n'
+    + '- No guests in thumbnails, no red backgrounds, no cluttered layouts\\n'
+    + '- Text overlay: ' + (textStyle === 'bold-keyword' ? '1-2 BIG BOLD words (e.g. "EXPOSED", "CAUGHT")' : textStyle === 'short-quote' ? 'Short dramatic quote from the story' : 'No text overlay, expression tells the story') + '\\n'
+    + '- Host: ' + (host === 'sam' ? 'Sam solo' : host === 'john' ? 'John solo' : host === 'both' ? 'Sam + John' : 'Guest') + '\\n\\n'
+    + 'TITLE RULES:\\n'
+    + '- First-person drama ("My husband BONED his co-worker") massively outperforms third-person\\n'
+    + '- Must create unresolved tension\\n'
+    + '- 60-80 characters ideal\\n'
+    + '- Strong emotional words: TRUTH, SECRET, REVEALED, ABANDONED, DEMANDED, EXPOSED\\n\\n'
+    + 'TOP 10 OWN VIDEOS:\\n' + topOwn + '\\n\\n'
+    + 'TOP 10 COMPETITOR VIDEOS:\\n' + topComp + '\\n\\n'
+    + 'You MUST respond in EXACTLY this JSON format (no markdown, no code blocks, just raw JSON):\\n'
+    + '[\\n'
+    + '  {{\\n'
+    + '    "style": "proven",\\n'
+    + '    "title": "the title",\\n'
+    + '    "thumbnail_description": "detailed visual description for image generation: host expression, background, colors, text overlay, composition",\\n'
+    + '    "dalle_prompt": "professional YouTube thumbnail, 16:9 aspect ratio, [detailed scene description for DALL-E]. Do NOT include any real person. Show only the background/scene/mood.",\\n'
+    + '    "why": "1 sentence explaining why this works based on the data"\\n'
+    + '  }},\\n'
+    + '  {{ "style": "competitor", ... }},\\n'
+    + '  {{ "style": "experimental", ... }}\\n'
+    + ']\\n\\n'
+    + 'CONCEPT 1 (proven): Use OKStorytime\\'s exact proven formula. Purple/blue studio, extreme close-up, first-person shock title.\\n'
+    + 'CONCEPT 2 (competitor): Inspired by what\\'s working for competitors right now. Different color palette or composition.\\n'
+    + 'CONCEPT 3 (experimental): Something fresh and different that could stand out in the feed. Bold creative risk.';
 
   try {{
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {{
-      method: 'POST',
-      headers: {{ 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' }},
-      body: JSON.stringify({{ model: 'claude-sonnet-4-20250514', max_tokens: 1500, system: systemPrompt, messages: [{{ role: 'user', content: 'Story: ' + story }}] }})
+    const data = await _callClaude([{{ role: 'user', content: 'Story: ' + story }}], 2000, systemPrompt);
+    if (!data || data.error) {{
+      status.textContent = 'Error: ' + (data?.error?.message || 'API error');
+      btn.disabled = false;
+      return;
+    }}
+
+    let text = data.content?.[0]?.text || '';
+    // Extract JSON from response (handle markdown code blocks)
+    const jsonMatch = text.match(/\\[\\s*\\{{[\\s\\S]*\\}}\\s*\\]/);
+    let concepts;
+    try {{
+      concepts = JSON.parse(jsonMatch ? jsonMatch[0] : text);
+    }} catch(e) {{
+      // Fallback: show raw text
+      for (let i = 1; i <= 3; i++) {{
+        document.getElementById('thumb-title-' + i).innerHTML = '';
+        document.getElementById('thumb-why-' + i).innerHTML = '';
+      }}
+      document.getElementById('thumb-title-1').innerHTML = text.replace(/\\n/g, '<br>');
+      status.textContent = 'Generated concepts (JSON parse failed, showing raw)';
+      btn.disabled = false;
+      return;
+    }}
+
+    // Store conversation for refinement
+    _thumbConversation = [
+      {{ role: 'user', content: 'Story: ' + story }},
+      {{ role: 'assistant', content: text }}
+    ];
+
+    // Display concepts
+    concepts.forEach((c, i) => {{
+      const idx = i + 1;
+      document.getElementById('thumb-title-' + idx).innerHTML = '<span style="color:var(--primary);font-weight:800">TITLE:</span> ' + _esc(c.title);
+      document.getElementById('thumb-why-' + idx).innerHTML = '<strong>Why:</strong> ' + _esc(c.why) + '<br><strong>Thumbnail:</strong> ' + _esc(c.thumbnail_description);
     }});
-    const data = await resp.json();
-    const text = data.content?.[0]?.text || 'No response';
-    document.getElementById('thumb-results').style.display = 'block';
-    document.getElementById('thumb-combos').innerHTML = text.replace(/\\n/g, '<br>');
-    status.textContent = '';
+
+    // Generate images if DALL-E key available
+    if (hasDalle) {{
+      status.textContent = 'Step 2/3: Generating thumbnail images with DALL-E...';
+      const imgPromises = concepts.map(async (c, i) => {{
+        const idx = i + 1;
+        document.getElementById('thumb-img-' + idx).innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);font-size:.78rem"><div class="thinking-dot" style="margin-right:4px"></div><div class="thinking-dot" style="animation-delay:.3s;margin-right:4px"></div><div class="thinking-dot" style="animation-delay:.6s"></div></div>';
+        try {{
+          const imgData = await _generateDalle(c.dalle_prompt);
+          if (imgData) {{
+            document.getElementById('thumb-img-' + idx).innerHTML = '<img src="' + imgData + '" style="width:100%;height:100%;object-fit:cover;border-radius:8px">';
+          }} else {{
+            document.getElementById('thumb-img-' + idx).innerHTML = '<div style="padding:12px;font-size:.78rem;color:var(--text-muted);text-align:center">' + _esc(c.thumbnail_description) + '</div>';
+          }}
+        }} catch(e) {{
+          document.getElementById('thumb-img-' + idx).innerHTML = '<div style="padding:12px;font-size:.78rem;color:var(--red)">Image generation failed</div>';
+        }}
+      }});
+      await Promise.all(imgPromises);
+      status.textContent = 'Done! Pick a concept and refine it below.';
+    }} else {{
+      // No DALL-E: show text descriptions in image slots
+      concepts.forEach((c, i) => {{
+        const idx = i + 1;
+        document.getElementById('thumb-img-' + idx).innerHTML = '<div style="padding:12px;font-size:.78rem;color:var(--text-muted);text-align:center;line-height:1.4"><strong>Visual concept:</strong><br>' + _esc(c.thumbnail_description) + '</div>';
+      }});
+      status.textContent = 'Done! Add an OpenAI key below to generate actual thumbnail images.';
+    }}
   }} catch(e) {{
     status.textContent = 'Error: ' + e.message;
   }}
   btn.disabled = false;
 }}
-window.generateThumbConcepts = generateThumbConcepts;
+window.generateThumbnails = generateThumbnails;
 
-// ── Init experiments + rules + patterns on load ───────────────
+async function refineThumb() {{
+  const input = document.getElementById('thumb-chat-input');
+  const msg = input.value.trim();
+  if (!msg) return;
+  if (!getKey()) {{ alert('Save your Anthropic API key in the Analytics tab first.'); return; }}
+
+  input.value = '';
+  _thumbChatBubble('user', _esc(msg));
+  const thinking = _thumbChatBubble('assistant', '<em style="color:var(--text-muted)">Refining...</em>');
+
+  _thumbConversation.push({{ role: 'user', content: msg + '\\n\\nRespond with the updated JSON array in the same format (3 concepts). Only modify what I asked to change.' }});
+
+  try {{
+    const data = await _callClaude(_thumbConversation, 2000);
+    if (!data || data.error) {{
+      thinking.innerHTML = '<span style="color:var(--red)">Error: ' + _esc(data?.error?.message || 'API error') + '</span>';
+      return;
+    }}
+
+    const text = data.content?.[0]?.text || '';
+    _thumbConversation.push({{ role: 'assistant', content: text }});
+
+    const jsonMatch = text.match(/\\[\\s*\\{{[\\s\\S]*\\}}\\s*\\]/);
+    if (jsonMatch) {{
+      try {{
+        const concepts = JSON.parse(jsonMatch[0]);
+        concepts.forEach((c, i) => {{
+          const idx = i + 1;
+          document.getElementById('thumb-title-' + idx).innerHTML = '<span style="color:var(--primary);font-weight:800">TITLE:</span> ' + _esc(c.title);
+          document.getElementById('thumb-why-' + idx).innerHTML = '<strong>Why:</strong> ' + _esc(c.why) + '<br><strong>Thumbnail:</strong> ' + _esc(c.thumbnail_description);
+        }});
+        thinking.innerHTML = 'Updated all 3 concepts! Check above.';
+
+        // Re-generate images if DALL-E available
+        if (localStorage.getItem(OPENAI_KEY_LS)) {{
+          thinking.innerHTML += ' Regenerating images...';
+          const imgPromises = concepts.map(async (c, i) => {{
+            const idx = i + 1;
+            document.getElementById('thumb-img-' + idx).innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);font-size:.78rem"><div class="thinking-dot" style="margin-right:4px"></div><div class="thinking-dot" style="animation-delay:.3s;margin-right:4px"></div><div class="thinking-dot" style="animation-delay:.6s"></div></div>';
+            try {{
+              const imgData = await _generateDalle(c.dalle_prompt);
+              if (imgData) {{
+                document.getElementById('thumb-img-' + idx).innerHTML = '<img src="' + imgData + '" style="width:100%;height:100%;object-fit:cover;border-radius:8px">';
+              }}
+            }} catch(e) {{}}
+          }});
+          await Promise.all(imgPromises);
+          thinking.innerHTML = 'Updated concepts and regenerated all images!';
+        }}
+      }} catch(e) {{
+        thinking.innerHTML = text.replace(/\\n/g, '<br>');
+      }}
+    }} else {{
+      thinking.innerHTML = text.replace(/\\n/g, '<br>').replace(/\\*\\*(.+?)\\*\\*/g, '<strong>$1</strong>');
+    }}
+  }} catch(e) {{
+    thinking.innerHTML = '<span style="color:var(--red)">Error: ' + _esc(e.message) + '</span>';
+  }}
+}}
+window.refineThumb = refineThumb;
+
+// ── Init experiments + rules + patterns + thumbnail maker on load ──
 window.addEventListener('DOMContentLoaded', () => {{
   renderExperiments();
   renderRules();
   analyzeTitlePatterns();
   filterCompTitles('7d', null);
+  renderHostPhotos();
+  // Show OpenAI key saved indicator
+  if (localStorage.getItem(OPENAI_KEY_LS)) {{
+    document.getElementById('openai-key-bar').style.display = 'none';
+    document.getElementById('openai-key-saved').style.display = 'flex';
+  }}
 }});
 
 </script>
