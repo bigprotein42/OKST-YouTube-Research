@@ -638,7 +638,8 @@ def build(videos):
     # Download missing thumbnails (hqdefault = smaller ~15KB vs maxres ~60KB)
     os.makedirs("thumbnails/top", exist_ok=True)
     os.makedirs("thumbnails/bottom", exist_ok=True)
-    all_thumb_ids = thumb_pool_ids | set(bot_thumb_ids)
+    shorts_thumb_ids = set(top_shorts_ids) | set(worst_shorts_ids)
+    all_thumb_ids = thumb_pool_ids | set(bot_thumb_ids) | shorts_thumb_ids
     for vid_id in all_thumb_ids:
         # Try top folder first, then bottom
         path_top = f"thumbnails/top/{vid_id}.jpg"
@@ -1045,7 +1046,7 @@ def build(videos):
         html = '<div class="thumb-grid">'
         found = 0
         for vid_id in ids:
-            b64 = img_b64(f"thumbnails/top/{vid_id}.jpg") or img_b64(f"thumbnails/recent/{vid_id}.jpg")
+            b64 = img_b64(f"thumbnails/top/{vid_id}.jpg") or img_b64(f"thumbnails/bottom/{vid_id}.jpg") or img_b64(f"thumbnails/recent/{vid_id}.jpg")
             if not b64:
                 continue
             v     = next((x for x in videos if x["video_id"] == vid_id), {})
